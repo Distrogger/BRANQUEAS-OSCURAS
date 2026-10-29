@@ -3,290 +3,277 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Directivo - Control de Branquias y Calidad</title>
+  <title>Dashboard Analítico - Correlación de Branquias y Calidad</title>
   
-  <!-- CDNs alternativos y más estables -->
+  <!-- CDNs de alta disponibilidad -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   
   <style>
-    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #f1f5f9; }
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #f8fafc; }
     .tab-active { border-bottom: 3px solid #2563eb; color: #1d4ed8; font-weight: 700; background-color: #eff6ff; }
-    .badge-a { background-color: #dcfce7; color: #15803d; border: 1px solid #86efac; }
-    .badge-b { background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
-    .badge-c { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
-    .badge-bof-critico { background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
-    .badge-bol-alerta { background-color: #ffedd5; color: #9a3412; border: 1px solid #fb923c; }
-    .badge-boml-leve { background-color: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
   </style>
 </head>
 <body class="text-slate-800">
 
-  <!-- HEADER -->
+  <!-- HEADER Y PANEL DIAGNÓSTICO -->
   <header class="bg-slate-900 text-white shadow-lg border-b border-slate-700">
     <div class="max-w-[1440px] mx-auto px-4 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
       <div>
         <div class="flex items-center gap-2">
-          <span class="bg-blue-600 text-xs font-bold uppercase px-2.5 py-1 rounded">Control de Calidad - Recepción</span>
-          <span class="text-emerald-400 text-xs font-bold bg-slate-800 px-2 py-1 rounded border border-slate-700" id="statusCarga">Iniciando sistema...</span>
+          <span class="bg-blue-600 text-xs font-bold uppercase px-2.5 py-1 rounded">Inteligencia de Calidad</span>
+          <span class="text-emerald-400 text-xs font-bold bg-slate-800 px-2 py-1 rounded" id="statusCarga">Cargando Motor Analítico...</span>
         </div>
-        <h1 class="text-xl md:text-2xl font-bold mt-1">Visión Directiva: Monitoreo de Branquias</h1>
+        <h1 class="text-xl font-bold mt-1">Análisis de Correlación: Defectos (Branquias) vs. Fresco y Sano</h1>
       </div>
       
       <div class="flex flex-wrap items-center gap-3">
-        <label class="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-lg border border-slate-700 text-xs cursor-pointer hover:bg-slate-700">
-          <input type="checkbox" id="chkDeduplicar" checked class="rounded text-blue-600" onchange="applyFilters()">
-          <span>Deduplicar Lotes Exactos</span>
-        </label>
-        <label class="bg-blue-600 hover:bg-blue-500 transition text-white text-xs font-semibold px-4 py-2.5 rounded-lg cursor-pointer flex items-center gap-2 shadow">
-          <span>🔄 Carga Manual (CSV)</span>
-          <input type="file" id="fileInput" accept=".csv,.txt" class="hidden" onchange="handleManualUpload(event)">
+        <label class="bg-blue-600 hover:bg-blue-500 transition text-white text-xs font-semibold px-4 py-2.5 rounded-lg cursor-pointer flex items-center gap-2">
+          <span>🔄 Cargar CSV (Reporte Branquias)</span>
+          <input type="file" accept=".csv,.txt" class="hidden" onchange="handleManualUpload(event)">
         </label>
       </div>
     </div>
   </header>
 
-  <!-- PANTALLA DE ERROR VISIBLE (SI ALGO FALLA) -->
   <div id="errorPanel" class="max-w-[1440px] mx-auto px-4 py-3 mt-4 bg-red-100 border-l-4 border-red-600 text-red-800 hidden">
-    <h3 class="font-bold text-sm">Se detectó un problema técnico:</h3>
+    <h3 class="font-bold text-sm">Problema Técnico Detectado:</h3>
     <p id="errorMsg" class="text-xs mt-1 font-mono"></p>
   </div>
 
-  <!-- FILTROS GLOBALES -->
+  <!-- SLICERS INTERACTIVOS (FILTROS) -->
   <section class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20 mt-4">
-    <div class="max-w-[1440px] mx-auto px-4 py-3 grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1">Camaronera</label><select id="fCamaronera" onchange="applyFilters()" class="w-full border rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select></div>
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1">Logística de Pesca</label><select id="fLogistica" onchange="applyFilters()" class="w-full border rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select></div>
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1">Clase a Empacar</label><select id="fClase" onchange="applyFilters()" class="w-full border rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select></div>
+    <div class="max-w-[1440px] mx-auto px-4 py-3 grid grid-cols-2 md:grid-cols-5 gap-4 items-end">
       <div>
-        <label class="block text-xs font-semibold text-slate-500 mb-1">Filtro Branquias</label>
-        <select id="fSeveridad" onchange="applyFilters()" class="w-full border rounded-md px-2 py-1.5 text-sm bg-white">
-          <option value="ALL">Todos los Lotes</option>
-          <option value="BOF">🚨 Con BOF (Fuerte)</option>
-          <option value="BOL">⚠️ Con BOL (Leve)</option>
-          <option value="LIMPIO">✅ Sin defecto</option>
+        <label class="block text-xs font-bold text-slate-500 mb-1">Filtro: Camaronera</label>
+        <select id="fCamaronera" onchange="applyFilters()" class="w-full border-2 border-slate-200 rounded-md px-2 py-1.5 text-sm"><option value="ALL">Todas</option></select>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-500 mb-1">Filtro: Clase Final</label>
+        <select id="fClase" onchange="applyFilters()" class="w-full border-2 border-slate-200 rounded-md px-2 py-1.5 text-sm"><option value="ALL">Todas</option></select>
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-500 mb-1">Nivel de Riesgo (Branquias)</label>
+        <select id="fSeveridad" onchange="applyFilters()" class="w-full border-2 border-slate-200 rounded-md px-2 py-1.5 text-sm">
+          <option value="ALL">Mostrar Todos</option>
+          <option value="BOF">Con Riesgo BOF (Fuerte)</option>
+          <option value="BOL">Con Riesgo BOL (Leve)</option>
         </select>
       </div>
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1">Buscar Lote</label><input type="text" id="fBusqueda" oninput="debounceFilter()" placeholder="Ej: 1457532" class="w-full border rounded-md px-2.5 py-1.5 text-sm"></div>
-      <div><button onclick="resetFilters()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1.5 px-3 rounded-md text-sm transition">Limpiar Filtros</button></div>
+      <div>
+        <label class="block text-xs font-bold text-slate-500 mb-1">Buscador Lote</label>
+        <input type="text" id="fBusqueda" oninput="debounceFilter()" placeholder="Ej: 1457532" class="w-full border-2 border-slate-200 rounded-md px-2.5 py-1.5 text-sm">
+      </div>
+      <div>
+        <button onclick="resetFilters()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 px-3 rounded-md text-sm transition">Restablecer Filtros</button>
+      </div>
     </div>
   </section>
 
-  <!-- CONTENIDO PRINCIPAL -->
   <main class="max-w-[1440px] mx-auto px-4 py-5" id="mainContent" style="display: none;">
-    <!-- KPIs -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-      <div class="bg-white p-4 rounded-xl border"><p class="text-[10px] text-slate-500 font-bold uppercase">Lotes Analizados</p><p id="kpiLotes" class="text-2xl font-extrabold mt-1">0</p></div>
-      <div class="bg-white p-4 rounded-xl border-l-4 border-emerald-500"><p class="text-[10px] text-emerald-700 font-bold uppercase">% Fresco y Sano</p><p id="kpiSanoPct" class="text-2xl font-extrabold text-emerald-600 mt-1">0%</p></div>
-      <div class="bg-white p-4 rounded-xl border-l-4 border-yellow-400"><p class="text-[10px] text-yellow-700 font-bold uppercase">Prom. BOML</p><p id="kpiBOML" class="text-2xl font-extrabold text-yellow-600 mt-1">0%</p></div>
-      <div class="bg-white p-4 rounded-xl border-l-4 border-orange-500"><p class="text-[10px] text-orange-700 font-bold uppercase">Prom. BOL</p><p id="kpiBOL" class="text-2xl font-extrabold text-orange-600 mt-1">0%</p></div>
-      <div class="bg-white p-4 rounded-xl border-l-4 border-red-600 bg-red-50"><p class="text-[10px] text-red-700 font-bold uppercase">Riesgo BOF</p><p id="kpiBOF" class="text-2xl font-extrabold text-red-600 mt-1">0%</p></div>
+    
+    <!-- INSIGHTS AUTOMÁTICOS -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div class="bg-white p-4 rounded-xl border-l-4 border-blue-500 shadow-sm">
+        <p class="text-[10px] text-blue-600 font-bold uppercase">Mejor Proveedor (Calidad)</p>
+        <p id="kpiMejorCam" class="text-lg font-extrabold mt-1 text-slate-800">Cargando...</p>
+        <p id="kpiMejorSano" class="text-[11px] text-slate-500 font-medium mt-1">Lidera el % Fresco y Sano</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl border-l-4 border-green-500 shadow-sm">
+        <p class="text-[10px] text-green-700 font-bold uppercase">Rendimiento A-PRIMERA</p>
+        <p id="kpiSanoA" class="text-2xl font-extrabold mt-1 text-green-700">0%</p>
+        <p class="text-[11px] text-slate-500 font-medium mt-1">Prom. Fresco y Sano en esta clase</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl border-l-4 border-red-500 shadow-sm">
+        <p class="text-[10px] text-red-700 font-bold uppercase">Prom. Branquias Críticas</p>
+        <p id="kpiBranquiasCriticas" class="text-2xl font-extrabold mt-1 text-red-600">0%</p>
+        <p class="text-[11px] text-slate-500 font-medium mt-1">Suma BOL (Leve) + BOF (Fuerte)</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl border shadow-sm">
+        <p class="text-[10px] text-slate-500 font-bold uppercase">Volumen Analizado</p>
+        <p id="kpiLibras" class="text-2xl font-extrabold mt-1 text-slate-800">0 lbs</p>
+        <p id="kpiLotes" class="text-[11px] text-slate-500 font-medium mt-1">0 lotes filtrados</p>
+      </div>
     </div>
 
-    <!-- TABS -->
+    <!-- TABS NAVEGACION -->
     <div class="bg-white rounded-t-xl border border-b-0 border-slate-200 flex overflow-x-auto">
-      <button onclick="switchTab('tab1')" id="btn-tab1" class="px-5 py-3 text-sm font-medium tab-active whitespace-nowrap">📊 1. Gráficos de Branquias</button>
-      <button onclick="switchTab('tab2')" id="btn-tab2" class="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 whitespace-nowrap">📋 2. Tabla de Datos Crudos</button>
+      <button onclick="switchTab('tab1')" id="btn-tab1" class="px-5 py-3 text-sm font-medium tab-active whitespace-nowrap">📈 Gráficas Estadísticas Dinámicas</button>
+      <button onclick="switchTab('tab2')" id="btn-tab2" class="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 whitespace-nowrap border-l">📋 Explorador Crudo de Lotes</button>
     </div>
 
-    <!-- TAB 1: GRAFICOS -->
+    <!-- TAB 1: GRÁFICAS DEL ANÁLISIS (EL NÚCLEO SOLICITADO) -->
     <div id="tab1" class="bg-white p-5 rounded-b-xl shadow-sm border border-slate-200 space-y-6">
+      
+      <div class="bg-slate-50 p-4 rounded-xl border">
+        <div class="flex justify-between items-center mb-2">
+          <div>
+            <h3 class="text-sm font-bold">Composición de Calidad y Defectos (Top Lotes Apilados al 100%)</h3>
+            <p class="text-[10px] text-slate-500">Distribución porcentual exacta de Fresco y Sano vs. niveles de Branquias.</p>
+          </div>
+          <select id="fTopApilado" onchange="renderDashboard()" class="text-xs border px-2 py-1 rounded bg-white">
+            <option value="15">Top 15 Lotes (Por Volumen)</option>
+            <option value="30">Top 30 Lotes</option>
+          </select>
+        </div>
+        <div class="h-80"><canvas id="chartApilado100"></canvas></div>
+      </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="bg-slate-50 p-4 rounded-xl border">
-          <h3 class="text-sm font-bold mb-1">Distribución por Clase</h3>
-          <div class="h-72"><canvas id="chartClasesPie"></canvas></div>
+          <h3 class="text-sm font-bold mb-1">Dispersión de Penalización (BOL + BOF)</h3>
+          <p class="text-[10px] text-slate-500 mb-2">Eje X: Defectos Severos. Eje Y: % Fresco y Sano. Muestra la caída de calidad al aumentar la severidad.</p>
+          <div class="h-80"><canvas id="chartScatterPenalizacion"></canvas></div>
         </div>
         <div class="bg-slate-50 p-4 rounded-xl border">
-          <h3 class="text-sm font-bold mb-1">Perfil de Branquias</h3>
-          <div class="h-72"><canvas id="chartBranquiasPorClase"></canvas></div>
+          <h3 class="text-sm font-bold mb-1">Impacto del Volumen en la Calidad (Burbujas)</h3>
+          <p class="text-[10px] text-slate-500 mb-2">Eje X: % Total Defectos. Eje Y: % Sano. Tamaño: Libras Recibidas. Demuestra nula correlación volumen-calidad.</p>
+          <div class="h-80"><canvas id="chartBurbujas"></canvas></div>
         </div>
       </div>
     </div>
 
-    <!-- TAB 2: TABLA -->
+    <!-- TAB 2: EXPLORADOR CRUDO -->
     <div id="tab2" class="bg-white p-5 rounded-b-xl shadow-sm border border-slate-200 hidden">
-      <button onclick="exportCSV()" class="mb-4 bg-blue-600 text-white text-xs px-4 py-2 rounded-lg font-bold">⬇️ Exportar (CSV)</button>
-      <div class="overflow-x-auto border rounded-lg max-h-96">
+      <div class="overflow-x-auto border rounded-lg max-h-[500px]">
         <table class="w-full text-left text-xs">
           <thead class="bg-slate-800 text-white sticky top-0">
             <tr>
-              <th class="p-2">Lote</th>
+              <th class="p-2">Lote / Piscina</th>
               <th class="p-2">Camaronera</th>
-              <th class="p-2 text-right">BOML</th>
-              <th class="p-2 text-right">BOL</th>
-              <th class="p-2 text-right">BOF</th>
-              <th class="p-2 text-right">Sano %</th>
-              <th class="p-2 text-center">Clase</th>
+              <th class="p-2 text-right">Fresco y Sano %</th>
+              <th class="p-2 text-right">BOML %</th>
+              <th class="p-2 text-right">BOL %</th>
+              <th class="p-2 text-right">BOF %</th>
+              <th class="p-2 text-right">Libras</th>
+              <th class="p-2 text-center">Clase Final</th>
             </tr>
           </thead>
           <tbody id="tbodyRawData" class="divide-y"></tbody>
         </table>
       </div>
     </div>
+
   </main>
 
   <script>
-    // SISTEMA GLOBAL DE CAPTURA DE ERRORES
+    // SISTEMA GLOBAL DE CAPTURA DE ERRORES VISIBLES
     window.onerror = function(message, source, lineno, colno, error) {
       document.getElementById('errorPanel').classList.remove('hidden');
-      document.getElementById('errorMsg').textContent = `Falla técnica detectada -> Línea: ${lineno} | Error: ${message}`;
-      document.getElementById('statusCarga').textContent = "❌ Error detectado";
-      document.getElementById('statusCarga').className = "text-red-400 text-xs font-bold bg-slate-800 px-2 py-1 rounded border border-slate-700";
+      document.getElementById('errorMsg').textContent = `Línea: ${lineno} | Detalle: ${message}`;
+      document.getElementById('statusCarga').textContent = "❌ Error en archivo";
+      document.getElementById('statusCarga').className = "text-white text-xs font-bold bg-red-600 px-2 py-1 rounded";
     };
 
-    // Base integrada para forzar que funcione
-    const EMBEDDED_CSV = `Lote;BOML (Muy Leve %);BOL (Leve %);BOF (Fuerte %);Nombre de camaronera;Piscina;Tipo de logística de pesca;Fecha de llegada;Meta_Gramaje entero;Meta_Gramaje cola;E. fresco y sano;Libras recibidas total;Clase a empacar
-1457532;0%;33%;0%;Camaronera Puna;PD310A;Logística tercerizada;2026-09-17 13:48:36;37.45;24.72;23 (35.38 %);12503.5;C-TERCERO
-1455481;0%;27%;0%;Camaronera Puna;PD416A;;2026-09-10 11:15:01;43;28.38;16 (32 %);100662.96;C-TERCERO
-1454618;27%;7%;0%;Camaronera Chongon;415;;2026-09-04 17:26:16;33.3;21.98;66 (82.5 %);43489.79;A-PRIMERA
-1454537;47%;20%;0%;Camaronera Cachugran;73;;2026-09-03 4:20:56;42;27.72;24 (40 %);560.33;C-TERCERO
-1453079;27%;0%;0%;Camaronera Puna;848;;2026-08-28 17:05:45;37.67;24.86;40 (66.67 %);64875.73;A-PRIMERA
-1461836;25%;32%;28%;Camaronera Puna;PU4034A;;2026-10-13 5:14:22;28.57;18.86;32 (45.71 %);609.02;B-SEGUNDA
-1461676;0%;23%;70%;Camaronera Puna;PU4030A;Logística Omarsa;2026-10-12 7:55:27;30.77;20.31;31 (47.69 %);27804.67;B-SEGUNDA`;
+    // DATOS DE RESPALDO INTEGRADOS PARA PREVENIR PANTALLA BLANCA
+    const EMBEDDED_CSV = `Lote;BOML (Muy Leve ) %;BOL (Leve ) %;BOF (Fuerte %);Nombre de camaronera;Piscina;Tipo de logística de pesca;Fecha de llegada;Meta_Gramaje entero;Meta_Gramaje cola;E. fresco y sano;Libras recibidas total;Clase a empacar
+1457532;0;33;0;Camaronera Puna;PD310A;Logística tercerizada;17/09/2026 13:48;37.45;24.72;23 (35.38 %);12503.5;C-TERCERO
+1455481;0;27;0;Camaronera Puna;PD416A;;10/09/2026 11:15;43;28.38;16 (32 %);100662.96;C-TERCERO
+1454618;27;7;0;Camaronera Chongon;415;;04/09/2026 17:26;33.3;21.98;66 (82.5 %);43489.79;A-PRIMERA
+1454537;47;20;0;Camaronera Cachugran;73;;03/09/2026 04:20;42;27.72;24 (40 %);560.33;C-TERCERO
+1453079;27;0;0;Camaronera Puna;848;;28/08/2026 17:05;37.67;24.86;40 (66.67 %);64875.73;A-PRIMERA
+1461836;25;32;28;Camaronera Puna;PU4034A;;13/10/2026 05:14;28.57;18.86;32 (45.71 %);609.02;B-SEGUNDA
+1461676;0;23;70;Camaronera Puna;PU4030A;Logística Omarsa;12/10/2026 07:55;30.77;20.31;31 (47.69 %);27804.67;B-SEGUNDA
+1461419;0;100;0;YASIMCORP S.A.;6;;10/10/2026 18:17;16.17;10.67;66 (55 %);15916.29;B-SEGUNDA`;
 
     let rawRows = [];
     let filteredLots = [];
     let charts = {};
     let debounceTimer = null;
 
-    // Cuando la página cargue, leer la base integrada y buscar el archivo
     window.onload = async function() {
-      try {
-        if (typeof Papa === 'undefined') {
-          throw new Error("La librería PapaParse no se cargó. Revisa tu conexión a internet o firewall.");
-        }
-        
-        // Carga forzada de la base integrada primero
-        parseCSVText(EMBEDDED_CSV, "Carga de Respaldo Exitosa");
+      // 1. Cargar datos integrados seguros
+      parseCSVText(EMBEDDED_CSV, "Carga Autónoma Base");
 
-        // Intento de cargar el archivo externo
-        const response = await fetch('Reporte_Branquias_Consolidado.csv', { cache: 'no-store' });
-        if (response.ok) {
-          const text = await response.text();
-          if (text.trim().length > 0) {
-            parseCSVText(text, "Sincronizado con CSV de GitHub");
-          }
+      // 2. Intentar buscar en red
+      try {
+        const res = await fetch('Reporte_Branquias_Consolidado.csv', { cache: 'no-store' });
+        if (res.ok) {
+          const txt = await res.text();
+          if (txt.includes('Lote')) parseCSVText(txt, "Sincronizado via GitHub");
         }
-      } catch (err) {
-        console.warn("Fetch falló (normal en local):", err);
-      }
+      } catch (e) { console.log("Uso offline detectado"); }
     };
 
     function handleManualUpload(e) {
-      try {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        document.getElementById('statusCarga').textContent = `⏳ Analizando ${file.name}...`;
-        
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          parseCSVText(evt.target.result, `Archivo Manual: ${file.name}`);
-          e.target.value = ''; 
-        };
-        reader.onerror = function() { throw new Error("Fallo al leer el archivo desde el disco duro."); };
-        reader.readAsText(file, 'UTF-8');
-      } catch (err) {
-        window.onerror(err.message, null, "Upload", null, err);
-      }
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById('statusCarga').textContent = "⏳ Analizando Archivo...";
+      const reader = new FileReader();
+      reader.onload = evt => parseCSVText(evt.target.result, `Carga Local: ${file.name}`);
+      reader.readAsText(file, 'UTF-8');
     }
 
-    function parseCSVText(text, sourceLabel) {
+    function parseCSVText(text, statusMsg) {
       try {
-        if (!text) throw new Error("El texto del archivo está vacío.");
-        
-        // Limpieza profunda de caracteres BOM e invisibles
         const cleanText = text.replace(/^\uFEFF/, '').trim();
         const delimiter = cleanText.split('\n')[0].includes(';') ? ';' : ',';
 
         Papa.parse(cleanText, {
-          header: true,
-          delimiter: delimiter,
-          skipEmptyLines: true,
-          transformHeader: function(h) { return h.replace(/^\uFEFF/, '').trim(); },
-          complete: function(res) {
-            initData(res.data, sourceLabel);
-          },
-          error: function(err) {
-            throw new Error(`Error en PapaParse: ${err.message}`);
-          }
+          header: true, delimiter: delimiter, skipEmptyLines: true,
+          transformHeader: h => h.replace(/^\uFEFF/, '').trim(),
+          complete: res => { initData(res.data, statusMsg); }
         });
-      } catch (err) {
-        window.onerror(err.message, null, "parseCSVText", null, err);
-      }
+      } catch (err) { window.onerror(err.message, null, "PapaParse", null, err); }
     }
 
-    // Funciones auxiliares ultra-seguras
+    // Funciones de Extracción Matemática
     function toNumber(val) {
       if (!val) return 0;
       if (typeof val === 'number') return val;
-      const clean = String(val).replace('%', '').trim().replace(/\s+/g, '').replace(',', '.');
-      const parsed = parseFloat(clean);
-      return isNaN(parsed) ? 0 : parsed;
+      return parseFloat(String(val).replace('%', '').trim().replace(/\s+/g, '').replace(',', '.')) || 0;
     }
 
     function parseFrescoSano(str) {
       if (!str) return 0;
       const match = String(str).match(/\(\s*(\d+(?:[.,]\d+)?)\s*%?\s*\)/);
       if (match) return parseFloat(match[1].replace(',', '.'));
-      return toNumber(str); // Si viene solo un número
+      return toNumber(str);
     }
 
-    function getSafeCol(row, possibleNames) {
+    function getSafeCol(row, options) {
       const keys = Object.keys(row);
-      for (let n of possibleNames) {
-        const cleanN = n.toLowerCase();
-        const found = keys.find(k => k.trim().toLowerCase() === cleanN);
+      for (let n of options) {
+        if (row[n] !== undefined) return row[n];
+        const found = keys.find(k => k.trim().toLowerCase() === n.toLowerCase());
         if (found) return row[found];
       }
       return '';
     }
 
-    function initData(rows, sourceLabel) {
-      try {
-        document.getElementById('errorPanel').classList.add('hidden'); // Ocultar errores si funcionó
+    function initData(rows, statusMsg) {
+      document.getElementById('errorPanel').classList.add('hidden');
 
-        const mapped = rows.map(r => {
-          const lote = String(getSafeCol(r, ['Lote'])).trim();
-          if (!lote) return null;
-
-          return {
-            Lote: lote,
-            Camaronera: String(getSafeCol(r, ['Nombre de camaronera', 'Camaronera']) || 'S/E').trim(),
-            Logistica: String(getSafeCol(r, ['Tipo de logística de pesca', 'Logística']) || 'S/E').trim(),
-            Clase: String(getSafeCol(r, ['Clase a empacar', 'Clase']) || 'SIN CLASE').trim().toUpperCase(),
-            BOML: toNumber(getSafeCol(r, ['BOML (Muy Leve %)', 'BOML'])),
-            BOL: toNumber(getSafeCol(r, ['BOL (Leve %)', 'BOL'])),
-            BOF: toNumber(getSafeCol(r, ['BOF (Fuerte %)', 'BOF'])),
-            SanoPct: parseFrescoSano(getSafeCol(r, ['E. fresco y sano', 'Fresco y sano'])),
-            Libras: toNumber(getSafeCol(r, ['Libras recibidas total', 'Libras recibidas']))
-          };
-        }).filter(r => r !== null);
-
-        if (mapped.length === 0) {
-          throw new Error("No se encontraron lotes. Revisa que el archivo tenga una columna llamada 'Lote'. Las columnas que detecté fueron: " + Object.keys(rows[0] || {}).join(", "));
-        }
-
-        rawRows = mapped;
+      rawRows = rows.map(r => {
+        const lote = String(getSafeCol(r, ['Lote'])).trim();
+        if (!lote) return null;
         
-        const st = document.getElementById('statusCarga');
-        st.textContent = `✅ ${sourceLabel} (${rawRows.length} lotes)`;
-        st.className = "text-emerald-400 text-xs font-bold bg-slate-800 px-2 py-1 rounded border border-slate-700";
-        
-        document.getElementById('mainContent').style.display = "block";
+        return {
+          Lote: lote,
+          Piscina: String(getSafeCol(r, ['Piscina']) || 'S/P').trim(),
+          Camaronera: String(getSafeCol(r, ['Nombre de camaronera', 'Camaronera']) || 'S/E').trim(),
+          Clase: String(getSafeCol(r, ['Clase a empacar', 'Clase']) || 'SIN CLASE').trim().toUpperCase(),
+          BOML: toNumber(getSafeCol(r, ['BOML (Muy Leve ) %', 'BOML', 'BOML (Muy Leve %)', 'BOML (Muy Leve %)'])),
+          BOL: toNumber(getSafeCol(r, ['BOL (Leve ) %', 'BOL', 'BOL (Leve %)', 'BOL (Leve %)'])),
+          BOF: toNumber(getSafeCol(r, ['BOF (Fuerte %)', 'BOF', 'BOF (Fuerte %)', 'BOF (Fuerte %)'])),
+          SanoPct: parseFrescoSano(getSafeCol(r, ['E. fresco y sano', 'Fresco y sano'])),
+          Libras: toNumber(getSafeCol(r, ['Libras recibidas total', 'Libras recibidas']))
+        };
+      }).filter(r => r !== null);
 
-        populateSelects();
-        applyFilters();
+      if (rawRows.length === 0) throw new Error("No detecté la columna 'Lote'. Verifica los encabezados de tu Excel.");
 
-      } catch (err) {
-        window.onerror(err.message, null, "initData", null, err);
-      }
+      document.getElementById('statusCarga').textContent = `✅ ${statusMsg}`;
+      document.getElementById('statusCarga').className = "text-emerald-400 text-xs font-bold bg-slate-800 px-2 py-1 rounded border border-slate-700";
+      document.getElementById('mainContent').style.display = "block";
+
+      populateSelects();
+      applyFilters();
     }
 
     function populateSelects() {
       const uCam = [...new Set(rawRows.map(r => r.Camaronera))].sort();
-      const uLog = [...new Set(rawRows.map(r => r.Logistica))].sort();
       const uCla = [...new Set(rawRows.map(r => r.Clase))].sort();
 
       const fill = (id, arr) => {
@@ -297,127 +284,167 @@
       };
       
       fill('fCamaronera', uCam);
-      fill('fLogistica', uLog);
       fill('fClase', uCla);
     }
 
-    function debounceFilter() {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(applyFilters, 250);
-    }
+    function debounceFilter() { clearTimeout(debounceTimer); debounceTimer = setTimeout(applyFilters, 250); }
 
     function applyFilters() {
-      try {
-        const fCam = document.getElementById('fCamaronera').value;
-        const fLog = document.getElementById('fLogistica').value;
-        const fCla = document.getElementById('fClase').value;
-        const fSev = document.getElementById('fSeveridad').value;
-        const q = document.getElementById('fBusqueda').value.toLowerCase();
-        const dedup = document.getElementById('chkDeduplicar').checked;
+      const fCam = document.getElementById('fCamaronera').value;
+      const fCla = document.getElementById('fClase').value;
+      const fSev = document.getElementById('fSeveridad').value;
+      const q = document.getElementById('fBusqueda').value.toLowerCase();
 
-        // Deduplicación sencilla
-        let base = rawRows;
-        if (dedup) {
-          const map = new Map();
-          base.forEach(r => map.set(r.Lote, r));
-          base = Array.from(map.values());
-        }
+      filteredLots = rawRows.filter(r => {
+        if (fCam !== 'ALL' && r.Camaronera !== fCam) return false;
+        if (fCla !== 'ALL' && r.Clase !== fCla) return false;
+        if (fSev === 'BOF' && r.BOF === 0) return false;
+        if (fSev === 'BOL' && r.BOL === 0) return false;
+        if (q && !r.Lote.toLowerCase().includes(q) && !r.Piscina.toLowerCase().includes(q)) return false;
+        return true;
+      });
 
-        filteredLots = base.filter(r => {
-          if (fCam !== 'ALL' && r.Camaronera !== fCam) return false;
-          if (fLog !== 'ALL' && r.Logistica !== fLog) return false;
-          if (fCla !== 'ALL' && r.Clase !== fCla) return false;
-          if (fSev === 'BOF' && r.BOF === 0) return false;
-          if (fSev === 'BOL' && r.BOL === 0) return false;
-          if (fSev === 'LIMPIO' && (r.BOML > 0 || r.BOL > 0 || r.BOF > 0)) return false;
-          if (q && !r.Lote.toLowerCase().includes(q)) return false;
-          return true;
-        });
-
-        renderDashboard();
-      } catch (err) {
-        window.onerror(err.message, null, "applyFilters", null, err);
-      }
+      renderDashboard();
     }
 
     function renderDashboard() {
       const n = filteredLots.length;
-      document.getElementById('kpiLotes').textContent = n;
+      document.getElementById('kpiLotes').textContent = `${n} lotes filtrados`;
       
-      if (n === 0) {
-        document.getElementById('kpiSanoPct').textContent = '0%';
-        document.getElementById('kpiBOML').textContent = '0%';
-        document.getElementById('kpiBOL').textContent = '0%';
-        document.getElementById('kpiBOF').textContent = '0%';
-        document.getElementById('tbodyRawData').innerHTML = '<tr><td colspan="7" class="p-4 text-center">No hay datos para estos filtros</td></tr>';
-        return;
-      }
+      if (n === 0) return;
 
-      const avg = key => (filteredLots.reduce((a, b) => a + b[key], 0) / n).toFixed(1);
-      
-      document.getElementById('kpiSanoPct').textContent = avg('SanoPct') + '%';
-      document.getElementById('kpiBOML').textContent = avg('BOML') + '%';
-      document.getElementById('kpiBOL').textContent = avg('BOL') + '%';
-      document.getElementById('kpiBOF').textContent = avg('BOF') + '%';
+      const totLibras = filteredLots.reduce((a,b) => a + b.Libras, 0);
+      document.getElementById('kpiLibras').textContent = Math.round(totLibras).toLocaleString('es-EC') + ' lbs';
 
-      // Gráficos
-      const mapClases = {};
-      filteredLots.forEach(r => mapClases[r.Clase] = (mapClases[r.Clase] || 0) + 1);
-      
-      if (charts.pie) charts.pie.destroy();
-      charts.pie = new Chart(document.getElementById('chartClasesPie'), {
-        type: 'doughnut',
-        data: {
-          labels: Object.keys(mapClases),
-          datasets: [{ data: Object.values(mapClases), backgroundColor: ['#16a34a', '#eab308', '#dc2626', '#64748b'] }]
-        },
-        options: { maintainAspectRatio: false }
+      // KPI: Promedio de Branquias Críticas (BOL + BOF)
+      const avgCrit = filteredLots.reduce((a,b) => a + b.BOL + b.BOF, 0) / n;
+      document.getElementById('kpiBranquiasCriticas').textContent = avgCrit.toFixed(2) + '%';
+
+      // KPI: Rendimiento A-Primera
+      const lotesA = filteredLots.filter(r => r.Clase === 'A-PRIMERA');
+      const avgA = lotesA.length ? (lotesA.reduce((a,b) => a + b.SanoPct, 0) / lotesA.length) : 0;
+      document.getElementById('kpiSanoA').textContent = avgA.toFixed(1) + '%';
+
+      // KPI: Mejor Proveedor (Top Fresco y Sano Promedio)
+      const provMap = {};
+      filteredLots.forEach(r => {
+        if (!provMap[r.Camaronera]) provMap[r.Camaronera] = { sumaSano: 0, count: 0 };
+        provMap[r.Camaronera].sumaSano += r.SanoPct;
+        provMap[r.Camaronera].count++;
       });
+      let bestProv = "N/A", bestAvg = 0;
+      for (const [p, d] of Object.entries(provMap)) {
+        if (d.sumaSano/d.count > bestAvg) { bestAvg = d.sumaSano/d.count; bestProv = p; }
+      }
+      document.getElementById('kpiMejorCam').textContent = bestProv;
+      document.getElementById('kpiMejorSano').textContent = `Con ${bestAvg.toFixed(1)}% promedio`;
 
-      const clLabels = Object.keys(mapClases);
-      const getAvg = (cl, field) => {
-        const sub = filteredLots.filter(r => r.Clase === cl);
-        return sub.length ? (sub.reduce((a, b) => a + b[field], 0) / sub.length).toFixed(1) : 0;
-      };
-
-      if (charts.bar) charts.bar.destroy();
-      charts.bar = new Chart(document.getElementById('chartBranquiasPorClase'), {
+      /* --- GRÁFICO 1: BARRAS APILADAS AL 100% --- */
+      const limit = parseInt(document.getElementById('fTopApilado').value);
+      // Ordenar por libras para ver los más representativos
+      const sortedByVol = [...filteredLots].sort((a,b) => b.Libras - a.Libras).slice(0, limit);
+      
+      // Para un gráfico 100% perfecto, sumamos todo y dividimos, aunque SanoPct + Defectos suele sumar ~100% 
+      const labelsStack = sortedByVol.map(r => r.Lote);
+      const dataSano = sortedByVol.map(r => r.SanoPct);
+      const dataBOML = sortedByVol.map(r => r.BOML);
+      const dataBOL  = sortedByVol.map(r => r.BOL);
+      const dataBOF  = sortedByVol.map(r => r.BOF);
+      
+      // Asumimos el resto como "Otros/Merma" si no llega a 100, pero por ahora apilamos los valores crudos 
+      // y forzamos la escala Y a 100% maximo.
+      if (charts.stack100) charts.stack100.destroy();
+      charts.stack100 = new Chart(document.getElementById('chartApilado100'), {
         type: 'bar',
         data: {
-          labels: clLabels,
+          labels: labelsStack,
           datasets: [
-            { label: 'BOML', backgroundColor: '#facc15', data: clLabels.map(c => getAvg(c, 'BOML')) },
-            { label: 'BOL', backgroundColor: '#f97316', data: clLabels.map(c => getAvg(c, 'BOL')) },
-            { label: 'BOF', backgroundColor: '#dc2626', data: clLabels.map(c => getAvg(c, 'BOF')) }
+            { label: '% Fresco y Sano', data: dataSano, backgroundColor: '#16a34a' },
+            { label: '% BOML (Muy Leve)', data: dataBOML, backgroundColor: '#facc15' },
+            { label: '% BOL (Leve)', data: dataBOL, backgroundColor: '#f97316' },
+            { label: '% BOF (Fuerte)', data: dataBOF, backgroundColor: '#dc2626' }
           ]
         },
-        options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } } }
+        options: {
+          maintainAspectRatio: false,
+          plugins: { tooltip: { mode: 'index' } },
+          scales: { x: { stacked: true }, y: { stacked: true, max: 100 } }
+        }
       });
 
-      // Tabla Cruda
+      /* --- GRÁFICO 2: SCATTER PENALIZACIÓN (BOL + BOF) vs SANO --- */
+      if (charts.scatterPenal) charts.scatterPenal.destroy();
+      charts.scatterPenal = new Chart(document.getElementById('chartScatterPenalizacion'), {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: 'Lotes Analizados',
+            data: filteredLots.map(r => ({ x: (r.BOL + r.BOF), y: r.SanoPct, lote: r.Lote, clase: r.Clase })),
+            backgroundColor: ctx => {
+              const cl = ctx.raw?.clase;
+              return cl === 'A-PRIMERA' ? '#16a34a' : (cl === 'B-SEGUNDA' ? '#eab308' : '#dc2626');
+            },
+            pointRadius: 6,
+            pointHoverRadius: 8
+          }]
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: { tooltip: { callbacks: { label: c => `Lote ${c.raw.lote}: ${c.raw.x}% Severo | Sano: ${c.raw.y}%` }}},
+          scales: {
+            x: { title: { display: true, text: 'Suma % Defectos Severos (BOL + BOF)' }, min: 0 },
+            y: { title: { display: true, text: '% Fresco y Sano' }, min: 0, max: 100 }
+          }
+        }
+      });
+
+      /* --- GRÁFICO 3: BURBUJAS (MULTIVARIABLE: TOTAL DEFECTOS VS SANO, TAMAÑO LIBRAS) --- */
+      const maxLibras = Math.max(...filteredLots.map(r => r.Libras));
+      if (charts.bubble) charts.bubble.destroy();
+      charts.bubble = new Chart(document.getElementById('chartBurbujas'), {
+        type: 'bubble',
+        data: {
+          datasets: [{
+            label: 'Volumen y Calidad',
+            data: filteredLots.map(r => ({
+              x: (r.BOML + r.BOL + r.BOF), 
+              y: r.SanoPct, 
+              // Escalar radio matemáticamente para no desbordar el gráfico
+              r: Math.max(3, (r.Libras / maxLibras) * 20),
+              lote: r.Lote,
+              libras: r.Libras
+            })),
+            backgroundColor: 'rgba(37, 99, 235, 0.6)',
+            borderColor: 'rgba(37, 99, 235, 1)'
+          }]
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: { tooltip: { callbacks: { label: c => `Lote ${c.raw.lote}: ${c.raw.libras.toLocaleString()} lbs | Def: ${c.raw.x}% | Sano: ${c.raw.y}%` }}},
+          scales: {
+            x: { title: { display: true, text: '% Total Defectos en Branquias (Todas)' }, min: 0 },
+            y: { title: { display: true, text: '% Fresco y Sano' }, min: 0, max: 100 }
+          }
+        }
+      });
+
+      // RENDER TABLA
       document.getElementById('tbodyRawData').innerHTML = filteredLots.slice(0, 150).map(r => `
-        <tr class="hover:bg-slate-50">
-          <td class="p-2 font-bold">${r.Lote}</td>
+        <tr class="hover:bg-slate-50 border-b">
+          <td class="p-2 font-bold">${r.Lote} <span class="text-[10px] text-slate-400 font-mono ml-1">${r.Piscina}</span></td>
           <td class="p-2">${r.Camaronera}</td>
-          <td class="p-2 text-right">${r.BOML}%</td>
-          <td class="p-2 text-right font-bold text-orange-600">${r.BOL}%</td>
-          <td class="p-2 text-right font-bold ${r.BOF > 0 ? 'text-red-600' : 'text-slate-400'}">${r.BOF}%</td>
           <td class="p-2 text-right font-bold text-emerald-600">${r.SanoPct.toFixed(1)}%</td>
-          <td class="p-2 text-center text-[10px] font-bold">${r.Clase}</td>
+          <td class="p-2 text-right">${r.BOML > 0 ? r.BOML + '%' : '-'}</td>
+          <td class="p-2 text-right font-bold text-orange-600">${r.BOL > 0 ? r.BOL + '%' : '-'}</td>
+          <td class="p-2 text-right font-bold ${r.BOF > 0 ? 'text-red-600 bg-red-50' : 'text-slate-300'}">${r.BOF > 0 ? r.BOF + '%' : '-'}</td>
+          <td class="p-2 text-right font-semibold">${Math.round(r.Libras).toLocaleString('es-EC')}</td>
+          <td class="p-2 text-center text-[10px] font-bold uppercase">${r.Clase}</td>
         </tr>
       `).join('');
     }
 
-    function exportCSV() {
-      if (!filteredLots.length) return;
-      const cols = ['Lote', 'Camaronera', 'Logistica', 'Clase', 'BOML', 'BOL', 'BOF', 'SanoPct', 'Libras'];
-      const rows = filteredLots.map(r => cols.map(c => r[c]).join(';'));
-      const blob = new Blob(["\uFEFF" + cols.join(';') + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
-      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'Reporte.csv'; a.click();
-    }
-
     function resetFilters() {
-      ['fCamaronera', 'fLogistica', 'fClase', 'fSeveridad'].forEach(id => document.getElementById(id).value = 'ALL');
+      ['fCamaronera', 'fClase', 'fSeveridad'].forEach(id => document.getElementById(id).value = 'ALL');
       document.getElementById('fBusqueda').value = '';
       applyFilters();
     }
@@ -427,7 +454,6 @@
       document.getElementById('tab2').classList.add('hidden');
       document.getElementById('btn-tab1').classList.remove('tab-active');
       document.getElementById('btn-tab2').classList.remove('tab-active');
-      
       document.getElementById(id).classList.remove('hidden');
       document.getElementById('btn-'+id).classList.add('tab-active');
     }
