@@ -3,13 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Directivo - Control de Branquias y Calidad</title>
-  
-  <!-- CDNs alternativos y más estables -->
+  <title>Dashboard Directivo - Control de Branquias y Calidad de Recepción</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
   <style>
     body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #f1f5f9; }
     .tab-active { border-bottom: 3px solid #2563eb; color: #1d4ed8; font-weight: 700; background-color: #eff6ff; }
@@ -29,9 +26,9 @@
       <div>
         <div class="flex items-center gap-2">
           <span class="bg-blue-600 text-xs font-bold uppercase px-2.5 py-1 rounded">Control de Calidad - Recepción</span>
-          <span class="text-emerald-400 text-xs font-bold bg-slate-800 px-2 py-1 rounded border border-slate-700" id="statusCarga">Iniciando sistema...</span>
+          <span class="text-emerald-400 text-xs font-bold" id="statusCarga">Iniciando sistema...</span>
         </div>
-        <h1 class="text-xl md:text-2xl font-bold mt-1">Visión Directiva: Monitoreo de Branquias</h1>
+        <h1 class="text-xl md:text-2xl font-bold mt-1">Visión Directiva: Monitoreo de Branquias (BOML / BOL / BOF) y Clasificación</h1>
       </div>
       
       <div class="flex flex-wrap items-center gap-3">
@@ -47,179 +44,448 @@
     </div>
   </header>
 
-  <!-- PANTALLA DE ERROR VISIBLE (SI ALGO FALLA) -->
-  <div id="errorPanel" class="max-w-[1440px] mx-auto px-4 py-3 mt-4 bg-red-100 border-l-4 border-red-600 text-red-800 hidden">
-    <h3 class="font-bold text-sm">Se detectó un problema técnico:</h3>
-    <p id="errorMsg" class="text-xs mt-1 font-mono"></p>
-  </div>
-
   <!-- FILTROS GLOBALES -->
-  <section class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20 mt-4">
+  <section class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20">
     <div class="max-w-[1440px] mx-auto px-4 py-3 grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1">Camaronera</label><select id="fCamaronera" onchange="applyFilters()" class="w-full border rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select></div>
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1">Logística de Pesca</label><select id="fLogistica" onchange="applyFilters()" class="w-full border rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select></div>
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1">Clase a Empacar</label><select id="fClase" onchange="applyFilters()" class="w-full border rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select></div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Camaronera</label>
+        <select id="fCamaronera" onchange="applyFilters()" class="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Logística de Pesca</label>
+        <select id="fLogistica" onchange="applyFilters()" class="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Clase a Empacar</label>
+        <select id="fClase" onchange="applyFilters()" class="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select>
+      </div>
       <div>
         <label class="block text-xs font-semibold text-slate-500 mb-1">Filtro Branquias</label>
-        <select id="fSeveridad" onchange="applyFilters()" class="w-full border rounded-md px-2 py-1.5 text-sm bg-white">
+        <select id="fSeveridad" onchange="applyFilters()" class="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white">
           <option value="ALL">Todos los Lotes</option>
-          <option value="BOF">🚨 Con BOF (Fuerte)</option>
-          <option value="BOL">⚠️ Con BOL (Leve)</option>
-          <option value="LIMPIO">✅ Sin defecto</option>
+          <option value="BOF">🚨 Con BOF (Fuerte > 0%)</option>
+          <option value="BOL">⚠️ Con BOL (Leve > 0%)</option>
+          <option value="BOML">🔸 Con BOML (Muy Leve > 0%)</option>
+          <option value="LIMPIO">✅ Sin defecto (0% en los 3)</option>
         </select>
       </div>
-      <div><label class="block text-xs font-semibold text-slate-500 mb-1">Buscar Lote</label><input type="text" id="fBusqueda" oninput="debounceFilter()" placeholder="Ej: 1457532" class="w-full border rounded-md px-2.5 py-1.5 text-sm"></div>
-      <div><button onclick="resetFilters()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1.5 px-3 rounded-md text-sm transition">Limpiar Filtros</button></div>
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Buscar Lote / Piscina</label>
+        <input type="text" id="fBusqueda" oninput="debounceFilter()" placeholder="Ej: 1457532 o PD310A" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm">
+      </div>
+      <div>
+        <button onclick="resetFilters()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1.5 px-3 rounded-md text-sm transition">Limpiar Filtros</button>
+      </div>
     </div>
   </section>
 
   <!-- CONTENIDO PRINCIPAL -->
-  <main class="max-w-[1440px] mx-auto px-4 py-5" id="mainContent" style="display: none;">
+  <main class="max-w-[1440px] mx-auto px-4 py-5" id="mainContent">
+    
     <!-- KPIs -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-      <div class="bg-white p-4 rounded-xl border"><p class="text-[10px] text-slate-500 font-bold uppercase">Lotes Analizados</p><p id="kpiLotes" class="text-2xl font-extrabold mt-1">0</p></div>
-      <div class="bg-white p-4 rounded-xl border-l-4 border-emerald-500"><p class="text-[10px] text-emerald-700 font-bold uppercase">% Fresco y Sano</p><p id="kpiSanoPct" class="text-2xl font-extrabold text-emerald-600 mt-1">0%</p></div>
-      <div class="bg-white p-4 rounded-xl border-l-4 border-yellow-400"><p class="text-[10px] text-yellow-700 font-bold uppercase">Prom. BOML</p><p id="kpiBOML" class="text-2xl font-extrabold text-yellow-600 mt-1">0%</p></div>
-      <div class="bg-white p-4 rounded-xl border-l-4 border-orange-500"><p class="text-[10px] text-orange-700 font-bold uppercase">Prom. BOL</p><p id="kpiBOL" class="text-2xl font-extrabold text-orange-600 mt-1">0%</p></div>
-      <div class="bg-white p-4 rounded-xl border-l-4 border-red-600 bg-red-50"><p class="text-[10px] text-red-700 font-bold uppercase">Riesgo BOF</p><p id="kpiBOF" class="text-2xl font-extrabold text-red-600 mt-1">0%</p></div>
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        <p class="text-[10px] text-slate-500 font-bold uppercase">Lotes Analizados</p>
+        <p id="kpiLotes" class="text-2xl font-extrabold mt-1">0</p>
+        <p id="kpiLibras" class="text-[11px] text-blue-600 font-bold mt-1">0 lbs totales</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-emerald-500">
+        <p class="text-[10px] text-emerald-700 font-bold uppercase">% E. Fresco y Sano</p>
+        <p id="kpiSanoPct" class="text-2xl font-extrabold text-emerald-600 mt-1">0%</p>
+        <p id="kpiSanoUnid" class="text-[10px] text-slate-500 mt-1">Prom. 0 unid/lote</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-400">
+        <p class="text-[10px] text-yellow-700 font-bold uppercase">Prom. BOML (Muy Leve)</p>
+        <p id="kpiBOML" class="text-2xl font-extrabold text-yellow-600 mt-1">0%</p>
+        <p id="kpiBOMLLotes" class="text-[10px] text-slate-500 mt-1">0 lotes afectados</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-500">
+        <p class="text-[10px] text-orange-700 font-bold uppercase">Prom. BOL (Leve)</p>
+        <p id="kpiBOL" class="text-2xl font-extrabold text-orange-600 mt-1">0%</p>
+        <p id="kpiBOLLotes" class="text-[10px] text-slate-500 mt-1">0 lotes afectados</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-600 bg-red-50/50">
+        <p class="text-[10px] text-red-700 font-bold uppercase">Riesgo Crítico BOF (Fuerte)</p>
+        <p id="kpiBOF" class="text-2xl font-extrabold text-red-600 mt-1">0%</p>
+        <p id="kpiBOFLotes" class="text-[10px] text-red-600 font-bold mt-1">0 lotes críticos</p>
+      </div>
+      <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-indigo-500">
+        <p class="text-[10px] text-indigo-700 font-bold uppercase">Gramaje Promedio</p>
+        <p id="kpiGramaje" class="text-2xl font-extrabold text-indigo-600 mt-1">0 g</p>
+        <p id="kpiClaseAPct" class="text-[10px] text-green-700 font-bold mt-1">0% Lbs en A-PRIMERA</p>
+      </div>
     </div>
 
-    <!-- TABS -->
+    <!-- TABS NAVEGACIÓN -->
     <div class="bg-white rounded-t-xl border border-b-0 border-slate-200 flex overflow-x-auto">
-      <button onclick="switchTab('tab1')" id="btn-tab1" class="px-5 py-3 text-sm font-medium tab-active whitespace-nowrap">📊 1. Gráficos de Branquias</button>
-      <button onclick="switchTab('tab2')" id="btn-tab2" class="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 whitespace-nowrap">📋 2. Tabla de Datos Crudos</button>
+      <button onclick="switchTab('tab1')" id="btn-tab1" class="px-5 py-3 text-sm font-medium tab-active whitespace-nowrap">📊 1. Resumen Gerencial y Clases</button>
+      <button onclick="switchTab('tab2')" id="btn-tab2" class="px-5 py-3 text-sm font-medium text-red-700 bg-red-50/50 hover:text-red-900 whitespace-nowrap font-bold border-x">🦐 2. Severidad de Branquias (BOML/BOL/BOF)</button>
+      <button onclick="switchTab('tab3')" id="btn-tab3" class="px-5 py-3 text-sm font-medium text-amber-700 bg-amber-50/50 hover:text-amber-900 whitespace-nowrap font-bold border-r">🏆 3. Scorecard Camaroneras y Piscinas</button>
+      <button onclick="switchTab('tab4')" id="btn-tab4" class="px-5 py-3 text-sm font-medium text-blue-700 hover:text-blue-900 whitespace-nowrap font-semibold border-r">🚚 4. Logística de Pesca</button>
+      <button onclick="switchTab('tab5')" id="btn-tab5" class="px-5 py-3 text-sm font-medium text-emerald-700 bg-emerald-50/50 hover:text-emerald-900 whitespace-nowrap font-bold border-r">📈 5. Correlaciones y Gramajes</button>
+      <button onclick="switchTab('tab6')" id="btn-tab6" class="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 whitespace-nowrap">📋 6. Explorador de Datos</button>
     </div>
 
-    <!-- TAB 1: GRAFICOS -->
+    <!-- TAB 1: RESUMEN GERENCIAL -->
     <div id="tab1" class="bg-white p-5 rounded-b-xl shadow-sm border border-slate-200 space-y-6">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-slate-50 p-4 rounded-xl border">
-          <h3 class="text-sm font-bold mb-1">Distribución por Clase</h3>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <h3 class="text-sm font-bold mb-1">Volumen (Libras) por Clase a Empacar</h3>
+          <p class="text-[10px] text-slate-500 mb-2">Distribución de libras recibidas según clasificación final.</p>
           <div class="h-72"><canvas id="chartClasesPie"></canvas></div>
         </div>
-        <div class="bg-slate-50 p-4 rounded-xl border">
-          <h3 class="text-sm font-bold mb-1">Perfil de Branquias</h3>
+        <div class="lg:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <h3 class="text-sm font-bold mb-1">Perfil de Branquias según Clase a Empacar (%)</h3>
+          <p class="text-[10px] text-slate-500 mb-2">Comparativa del promedio de BOML (Muy Leve), BOL (Leve) y BOF (Fuerte) en cada clase comercial.</p>
           <div class="h-72"><canvas id="chartBranquiasPorClase"></canvas></div>
         </div>
       </div>
+      <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+        <h3 class="text-sm font-bold mb-1">Evolución Temporal: % Fresco y Sano vs Severidad de Branquias</h3>
+        <p class="text-[10px] text-slate-500 mb-2">Tendencia por fecha de recepción del % Sano frente al % promedio de BOL y BOF.</p>
+        <div class="h-72"><canvas id="chartTendencia"></canvas></div>
+      </div>
     </div>
 
-    <!-- TAB 2: TABLA -->
-    <div id="tab2" class="bg-white p-5 rounded-b-xl shadow-sm border border-slate-200 hidden">
-      <button onclick="exportCSV()" class="mb-4 bg-blue-600 text-white text-xs px-4 py-2 rounded-lg font-bold">⬇️ Exportar (CSV)</button>
-      <div class="overflow-x-auto border rounded-lg max-h-96">
-        <table class="w-full text-left text-xs">
-          <thead class="bg-slate-800 text-white sticky top-0">
+    <!-- TAB 2: AUDITORÍA DE BRANQUIAS -->
+    <div id="tab2" class="bg-white p-5 rounded-b-xl shadow-sm border border-red-200 space-y-6 hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <h3 class="text-sm font-bold mb-1">Top 25 Lotes con Mayor Afectación en Branquias (BOML + BOL + BOF)</h3>
+          <p class="text-[10px] text-slate-500 mb-2">Desglose apilado por lote para identificar focos de branquias oscuras leves y fuertes.</p>
+          <div class="h-80"><canvas id="chartLotesBranquias"></canvas></div>
+        </div>
+        <div class="bg-red-50 p-4 rounded-xl border border-red-200">
+          <h3 class="text-sm font-bold text-red-900 mb-1">Proporción de Incidencia en Branquias</h3>
+          <p class="text-[10px] text-red-700 mb-2">Peso relativo de BOML, BOL y BOF sobre el promedio de hallazgos.</p>
+          <div class="h-72"><canvas id="chartSeveridadDoughnut"></canvas></div>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="text-sm font-bold text-slate-800 mb-2">🚨 Tabla de Auditoría: Lotes Ordenados por Criticidad (BOF y BOL)</h3>
+        <div class="overflow-x-auto border rounded-lg border-slate-200 max-h-96">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="bg-slate-800 text-white uppercase sticky top-0">
+              <tr>
+                <th class="p-2.5">Lote</th>
+                <th class="p-2.5">Camaronera</th>
+                <th class="p-2.5">Piscina</th>
+                <th class="p-2.5">Fecha Llegada</th>
+                <th class="p-2.5 text-right">BOML (Muy Leve)</th>
+                <th class="p-2.5 text-right">BOL (Leve)</th>
+                <th class="p-2.5 text-right">BOF (Fuerte)</th>
+                <th class="p-2.5 text-right">E. Fresco y Sano</th>
+                <th class="p-2.5 text-right">Libras</th>
+                <th class="p-2.5 text-center">Clase</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyBranquiasCriticas" class="divide-y divide-slate-200"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: SCORECARD CAMARONERAS Y PISCINAS -->
+    <div id="tab3" class="bg-white p-5 rounded-b-xl shadow-sm border border-amber-200 space-y-6 hidden">
+      <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+        <h3 class="text-sm font-bold mb-2">Resumen Ejecutivo por Camaronera</h3>
+        <div class="overflow-x-auto border rounded-lg border-slate-200 bg-white">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead class="bg-slate-100 text-slate-700 uppercase">
+              <tr>
+                <th class="p-2.5">Camaronera</th>
+                <th class="p-2.5 text-right">Lotes</th>
+                <th class="p-2.5 text-right">Libras Totales</th>
+                <th class="p-2.5 text-right">% Fresco y Sano</th>
+                <th class="p-2.5 text-right">Prom. BOML</th>
+                <th class="p-2.5 text-right">Prom. BOL</th>
+                <th class="p-2.5 text-right">Prom. BOF</th>
+                <th class="p-2.5 text-right">% Lbs Clase A</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyCamaronerasResumen" class="divide-y divide-slate-200"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-green-50 p-4 rounded-xl border border-green-200">
+          <h3 class="text-sm font-bold text-green-900 mb-1">🏆 Top 10 Piscinas: Mayor % Fresco y Sano</h3>
+          <p class="text-[10px] text-green-700 mb-3">Piscinas con mejor calidad física y menor afectación severa.</p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="bg-green-100 text-green-800 uppercase border-b border-green-300">
+                <tr>
+                  <th class="p-2">Camaronera</th>
+                  <th class="p-2">Piscina</th>
+                  <th class="p-2 text-right">Lotes</th>
+                  <th class="p-2 text-right">BOL / BOF</th>
+                  <th class="p-2 text-right">% Sano</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyMejoresPiscinas" class="divide-y divide-green-200 text-green-900"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="bg-red-50 p-4 rounded-xl border border-red-200">
+          <h3 class="text-sm font-bold text-red-900 mb-1">🚨 Top 10 Piscinas Críticas: Menor % Sano</h3>
+          <p class="text-[10px] text-red-700 mb-3">Piscinas con menor rendimiento físico en recepción.</p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="bg-red-100 text-red-800 uppercase border-b border-red-300">
+                <tr>
+                  <th class="p-2">Camaronera</th>
+                  <th class="p-2">Piscina</th>
+                  <th class="p-2 text-right">Lotes</th>
+                  <th class="p-2 text-right">BOL / BOF</th>
+                  <th class="p-2 text-right">% Sano</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyPeoresPiscinas" class="divide-y divide-red-200 text-red-900"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: LOGÍSTICA DE PESCA -->
+    <div id="tab4" class="bg-white p-5 rounded-b-xl shadow-sm border border-slate-200 space-y-6 hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <h3 class="text-sm font-bold mb-1">Calidad y Branquias según Tipo de Logística</h3>
+          <p class="text-[10px] text-slate-500 mb-2">Comparación de % Fresco y Sano vs BOML, BOL y BOF por modalidad logística.</p>
+          <div class="h-72"><canvas id="chartLogisticaComparativa"></canvas></div>
+        </div>
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <h3 class="text-sm font-bold mb-1">Distribución de Clases Empacadas por Logística (%)</h3>
+          <p class="text-[10px] text-slate-500 mb-2">Porcentaje de libras clasificadas en A, B y C según logística de pesca.</p>
+          <div class="h-72"><canvas id="chartLogisticaClases"></canvas></div>
+        </div>
+      </div>
+      <div class="overflow-x-auto border rounded-lg border-slate-200">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead class="bg-slate-100 text-slate-700 uppercase">
             <tr>
-              <th class="p-2">Lote</th>
-              <th class="p-2">Camaronera</th>
-              <th class="p-2 text-right">BOML</th>
-              <th class="p-2 text-right">BOL</th>
-              <th class="p-2 text-right">BOF</th>
-              <th class="p-2 text-right">Sano %</th>
-              <th class="p-2 text-center">Clase</th>
+              <th class="p-2.5">Tipo de Logística</th>
+              <th class="p-2.5 text-right">Lotes</th>
+              <th class="p-2.5 text-right">Libras Recibidas</th>
+              <th class="p-2.5 text-right">% Fresco y Sano</th>
+              <th class="p-2.5 text-right">Prom. BOML</th>
+              <th class="p-2.5 text-right">Prom. BOL</th>
+              <th class="p-2.5 text-right">Prom. BOF</th>
+              <th class="p-2.5 text-right">% Lbs Clase A</th>
             </tr>
           </thead>
-          <tbody id="tbodyRawData" class="divide-y"></tbody>
+          <tbody id="tbodyLogistica" class="divide-y divide-slate-200"></tbody>
         </table>
       </div>
     </div>
+
+    <!-- TAB 5: CORRELACIONES Y GRAMAJES -->
+    <div id="tab5" class="bg-white p-5 rounded-b-xl shadow-sm border border-emerald-200 space-y-6 hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <h3 class="text-sm font-bold text-slate-800 mb-1">Correlación: Branquias (BOL + BOF %) vs % E. Fresco y Sano</h3>
+          <p class="text-[10px] text-slate-500 mb-2">Impacto de las branquias leves y fuertes en la caída de conformidad y clase a empacar.</p>
+          <div class="h-80"><canvas id="chartCorrBranquiasSano"></canvas></div>
+        </div>
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <h3 class="text-sm font-bold text-slate-800 mb-1">Relación Biométrica: Meta Gramaje Entero vs Cola (g)</h3>
+          <p class="text-[10px] text-slate-500 mb-2">Consistencia de gramajes meta según clasificación del lote.</p>
+          <div class="h-80"><canvas id="chartCorrGramajes"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 6: EXPLORADOR DE DATOS CRUDOS -->
+    <div id="tab6" class="bg-white p-5 rounded-b-xl shadow-sm border border-slate-200 hidden space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <button onclick="exportCSV()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-lg font-bold shadow transition">
+            ⬇️ Exportar Vista Filtrada (CSV)
+          </button>
+          <span id="tableCountInfo" class="text-xs text-slate-500 font-medium ml-2"></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="changePage(-1)" class="px-3 py-1 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">◀ Anterior</button>
+          <span id="pageIndicator" class="text-xs font-semibold px-2">Página 1</span>
+          <button onclick="changePage(1)" class="px-3 py-1 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">Siguiente ▶</button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto border rounded-lg border-slate-200">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead class="bg-slate-800 text-white uppercase">
+            <tr>
+              <th class="p-2">Lote</th>
+              <th class="p-2 text-right">BOML (%)</th>
+              <th class="p-2 text-right">BOL (%)</th>
+              <th class="p-2 text-right">BOF (%)</th>
+              <th class="p-2">Camaronera</th>
+              <th class="p-2">Piscina</th>
+              <th class="p-2">Logística</th>
+              <th class="p-2">Fecha Llegada</th>
+              <th class="p-2 text-right">Gram. Entero</th>
+              <th class="p-2 text-right">Gram. Cola</th>
+              <th class="p-2 text-right">E. Fresco y Sano</th>
+              <th class="p-2 text-right">Libras Total</th>
+              <th class="p-2 text-center">Clase</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyRawData" class="divide-y divide-slate-200"></tbody>
+        </table>
+      </div>
+    </div>
+
   </main>
 
   <script>
-    // SISTEMA GLOBAL DE CAPTURA DE ERRORES
-    window.onerror = function(message, source, lineno, colno, error) {
-      document.getElementById('errorPanel').classList.remove('hidden');
-      document.getElementById('errorMsg').textContent = `Falla técnica detectada -> Línea: ${lineno} | Error: ${message}`;
-      document.getElementById('statusCarga').textContent = "❌ Error detectado";
-      document.getElementById('statusCarga').className = "text-red-400 text-xs font-bold bg-slate-800 px-2 py-1 rounded border border-slate-700";
-    };
-
-    // Base integrada para forzar que funcione
+    // Datos pre-integrados de Reporte_Branquias_Consolidado.csv como respaldo inmediato
     const EMBEDDED_CSV = `Lote;BOML (Muy Leve %);BOL (Leve %);BOF (Fuerte %);Nombre de camaronera;Piscina;Tipo de logística de pesca;Fecha de llegada;Meta_Gramaje entero;Meta_Gramaje cola;E. fresco y sano;Libras recibidas total;Clase a empacar
 1457532;0%;33%;0%;Camaronera Puna;PD310A;Logística tercerizada;2026-09-17 13:48:36;37.45;24.72;23 (35.38 %);12503.5;C-TERCERO
 1455481;0%;27%;0%;Camaronera Puna;PD416A;;2026-09-10 11:15:01;43;28.38;16 (32 %);100662.96;C-TERCERO
 1454618;27%;7%;0%;Camaronera Chongon;415;;2026-09-04 17:26:16;33.3;21.98;66 (82.5 %);43489.79;A-PRIMERA
 1454537;47%;20%;0%;Camaronera Cachugran;73;;2026-09-03 4:20:56;42;27.72;24 (40 %);560.33;C-TERCERO
 1453079;27%;0%;0%;Camaronera Puna;848;;2026-08-28 17:05:45;37.67;24.86;40 (66.67 %);64875.73;A-PRIMERA
+1451979;40%;0%;0%;Camaronera Puna;846;Logística Omarsa;2026-08-22 8:30:20;39.67;26.18;45 (75 %);31589.09;A-PRIMERA
+1451271;0%;20%;0%;Camaronera Puna;833;;2026-08-17 15:00:20;37.64;24.84;29 (52.73 %);91573.11;B-SEGUNDA
+1451039;53%;0%;0%;Camaronera Cachugran;98;;2026-08-17 0:59:46;39.09;25.8;42 (76.36 %);41843.29;A-PRIMERA
+1451021;40%;20%;0%;Camaronera Chongon;415;;2026-08-16 22:25:25;23.1;15.25;75 (75 %);19390.83;A-PRIMERA
+1450134;47%;0%;0%;Camaronera Chongon;357;Logística Omarsa;2026-08-11 19:28:49;27.6;18.22;57 (76 %);45297.04;A-PRIMERA
+1449951;0%;47%;0%;Camaronera Puna;PU4102A;Logística tercerizada;2026-08-10 22:59:38;36;23.76;53 (75.71 %);22362.63;A-PRIMERA
+1449809;60%;0%;0%;Camaronera Puna;886;;2026-08-10 10:44:16;30;19.8;52 (74.29 %);19830.18;A-PRIMERA
+1449151;0%;33%;0%;Camaronera Puna;PU4029A;;2026-08-07 3:14:39;33.6;22.18;25 (35.71 %);40616.45;C-TERCERO
+1465148;20%;33%;0%;Camaronera Puna;PU4096A;Logística Omarsa;2026-10-28 4:35:18;19.62;12.95;51 (51 %);620.55;B-SEGUNDA
+1465389;0%;53%;47%;Camaronera Puna;PU4099A;Logística Omarsa;2026-10-29 5:45:10;29.03;19.16;31 (41.33 %);20101.94;C-TERCERO
+1464697;0%;60%;13%;Camaronera Puna;PU4099A;;2026-10-26 3:44:22;36.1;23.83;39 (66.1 %);15916.58;B-SEGUNDA
+1464420;0%;33%;0%;Camaronera Puna;PU4101A;Logística tercerizada;2026-10-24 16:59:56;33.9;22.37;34 (56.67 %);55213.79;B-SEGUNDA
+1464212;0%;27%;0%;Camaronera Puna;PU4101A;Logística Omarsa;2026-10-23 19:20:49;33.33;22;34 (56.67 %);82055.28;B-SEGUNDA
+1464193;0%;20%;0%;Camaronera Puna;PU4021A;Logística Omarsa;2026-10-23 17:04:15;33.9;22.37;31 (52.54 %);51133.59;B-SEGUNDA
+1464180;20%;27%;0%;Camaronera Puna;PU1044A;Logística Omarsa;2026-10-23 15:25:38;31.58;20.84;47 (74.6 %);29400.78;A-PRIMERA
+1463532;13%;20%;0%;Camaronera Puna;PU4033A;Logística Omarsa;2026-10-20 19:16:33;34.48;22.76;41 (70.69 %);29496.5;A-PRIMERA
+1463531;0%;27%;0%;Camaronera Puna;PU4092A;Logística tercerizada;2026-10-20 19:12:41;31.03;20.48;30 (51.72 %);40227.05;B-SEGUNDA
+1463310;20%;13%;0%;Camaronera Puna;PU4013A;Logística Omarsa;2026-10-19 20:51:10;33.33;22;29 (48.33 %);62135.43;C-TERCERO
+1463087;0%;40%;0%;Camaronera Puna;PU1038A;Logística Omarsa;2026-10-18 19:33:16;31.58;20.84;28 (44.44 %);56056.08;C-TERCERO
+1462666;0%;27%;0%;Camaronera Puna;PU4011A;Logística Omarsa;2026-10-16 18:10:02;33.9;22.37;28 (47.46 %);68416.32;C-TERCERO
+1462647;0%;33%;0%;Camaronera Puna;PU1041A;Logística Omarsa;2026-10-16 14:52:09;32.79;21.64;45 (73.77 %);14861.55;A-PRIMERA
+1462052;0%;20%;0%;Camaronera Puna;PU1035A;Logística Omarsa;2026-10-14 4:20:32;33.33;22;36 (60 %);52180.52;B-SEGUNDA
 1461836;25%;32%;28%;Camaronera Puna;PU4034A;;2026-10-13 5:14:22;28.57;18.86;32 (45.71 %);609.02;B-SEGUNDA
-1461676;0%;23%;70%;Camaronera Puna;PU4030A;Logística Omarsa;2026-10-12 7:55:27;30.77;20.31;31 (47.69 %);27804.67;B-SEGUNDA`;
+1461676;0%;23%;70%;Camaronera Puna;PU4030A;Logística Omarsa;2026-10-12 7:55:27;30.77;20.31;31 (47.69 %);27804.67;B-SEGUNDA
+1461646;0%;47%;0%;Camaronera Puna;PU2081A;Logística Omarsa;2026-10-12 1:52:47;33.33;22;47 (78.33 %);21810.59;A-PRIMERA
+1461643;0%;27%;0%;Camaronera Puna;PU2072A;Logística Omarsa;2026-10-12 1:11:19;30.3;20;34 (51.52 %);109408.82;B-SEGUNDA
+1461467;0%;27%;0%;Camaronera Puna;PU1033A;Logística Omarsa;2026-10-11 0:46:40;32.79;21.64;32 (52.46 %);81414.23;B-SEGUNDA
+1461442;0%;20%;0%;Camaronera Puna;PU2077A;Logística Omarsa;2026-10-10 21:08:52;30.77;20.31;31 (47.69 %);75274.22;C-TERCERO
+1461419;0%;100%;0%;YASIMCORP S.A.;6;;2026-10-10 18:17:19;16.17;10.67;66 (55 %);15916.29;B-SEGUNDA
+1461335;0%;47%;0%;Camaronera Puna;PU2085A;Logística Omarsa;2026-10-10 7:01:44;37.04;24.45;26 (48.15 %);15936.98;C-TERCERO
+1461078;0%;33%;67%;Camaronera Puna;PU4031A;Logística Omarsa;2026-10-09 3:40:26;28.57;18.86;27 (38.57 %);54338.12;C-TERCERO
+1461040;0%;33%;0%;Camaronera Puna;PU4012A;Logística Omarsa;2026-10-09 0:04:01;34.48;22.76;26 (44.83 %);81239.04;C-TERCERO
+1460829;0%;33%;0%;Camaronera Puna;PU1040A;Logística Omarsa;2026-10-08 0:51:47;31.25;20.63;41 (64.06 %);59987.31;B-SEGUNDA
+1459217;20%;0%;0%;Camaronera Puna;PU4015A;Logística Omarsa;2026-09-29 19:21:42;43.48;28.7;37 (80.43 %);9558.47;A-PRIMERA
+1459011;20%;0%;0%;Camaronera Puna;PU4015A;;2026-09-28 22:32:12;41.67;27.5;37 (77.08 %);35316.03;A-PRIMERA
+1458989;26%;0%;0%;Camaronera Puna;PU4015A;Logística Omarsa;2026-09-28 19:50:49;42.55;28.08;38 (80.85 %);18084.72;A-PRIMERA
+1458825;0%;40%;27%;Camaronera Puna;PU4035A;Logística Omarsa;2026-09-27 19:33:16;30.77;20.31;22 (33.85 %);18900.88;C-TERCERO`;
+
+    const CSV_FILES_TO_TRY = [
+      'Reporte_Branquias_Consolidado.csv',
+      'Reporte_Branquias_Consolidado'
+    ];
+
+    const CLASE_COLORS = {
+      'A-PRIMERA': '#16a34a',
+      'B-SEGUNDA': '#eab308',
+      'C-TERCERO': '#dc2626',
+      'OTROS': '#64748b'
+    };
 
     let rawRows = [];
     let filteredLots = [];
     let charts = {};
+    let currentPage = 1;
+    const ROWS_PER_PAGE = 100;
     let debounceTimer = null;
 
-    // Cuando la página cargue, leer la base integrada y buscar el archivo
-    window.onload = async function() {
-      try {
-        if (typeof Papa === 'undefined') {
-          throw new Error("La librería PapaParse no se cargó. Revisa tu conexión a internet o firewall.");
-        }
-        
-        // Carga forzada de la base integrada primero
-        parseCSVText(EMBEDDED_CSV, "Carga de Respaldo Exitosa");
+    window.addEventListener('DOMContentLoaded', async () => {
+      const st = document.getElementById('statusCarga');
+      
+      // 1. Cargamos primero la base integrada para asegurar que haya datos
+      parseCSVText(EMBEDDED_CSV, "Cargando datos...");
 
-        // Intento de cargar el archivo externo
-        const response = await fetch('Reporte_Branquias_Consolidado.csv', { cache: 'no-store' });
-        if (response.ok) {
-          const text = await response.text();
-          if (text.trim().length > 0) {
-            parseCSVText(text, "Sincronizado con CSV de GitHub");
+      // 2. Intentamos sincronizar desde GitHub
+      let archivoCargadoExitosamente = false;
+      
+      for (const fileName of CSV_FILES_TO_TRY) {
+        try {
+          st.textContent = `⏳ Buscando ${fileName} en GitHub...`;
+          st.className = "text-amber-400 text-xs font-bold";
+          
+          const response = await fetch(fileName, { cache: 'no-store' });
+          
+          if (response.ok) {
+            const text = await response.text();
+            
+            // Verificamos que sea un CSV válido y no una página HTML de error 404 disfrazada
+            if (text && text.includes('Lote') && !text.includes('<!DOCTYPE html>')) {
+              parseCSVText(text, `Sincronizado (${fileName})`);
+              archivoCargadoExitosamente = true;
+              break; // Salimos del bucle porque ya lo encontró
+            } else {
+              console.warn(`El archivo ${fileName} existe, pero su contenido no parece ser el CSV correcto.`);
+            }
           }
+        } catch (err) {
+          console.warn(`No se pudo cargar ${fileName} debido a un error de red.`);
         }
-      } catch (err) {
-        console.warn("Fetch falló (normal en local):", err);
       }
-    };
+
+      // Si fallan todos los intentos externos, confirmamos que usamos la base integrada
+      if (!archivoCargadoExitosamente) {
+        st.textContent = "⚠️ Mostrando Base Integrada (No se halló CSV externo)";
+        st.className = "text-yellow-400 text-xs font-bold";
+        console.error("Asegúrate de que el archivo CSV esté subido a GitHub con el nombre EXACTO: Reporte_Branquias_Consolidado.csv");
+      }
+    });
 
     function handleManualUpload(e) {
-      try {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        document.getElementById('statusCarga').textContent = `⏳ Analizando ${file.name}...`;
-        
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-          parseCSVText(evt.target.result, `Archivo Manual: ${file.name}`);
-          e.target.value = ''; 
-        };
-        reader.onerror = function() { throw new Error("Fallo al leer el archivo desde el disco duro."); };
-        reader.readAsText(file, 'UTF-8');
-      } catch (err) {
-        window.onerror(err.message, null, "Upload", null, err);
-      }
+      const file = e.target.files[0];
+      if (!file) return;
+      const st = document.getElementById('statusCarga');
+      st.textContent = `⏳ Leyendo ${file.name}...`;
+      st.className = "text-amber-400 text-xs font-bold";
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        parseCSVText(evt.target.result, `Archivo cargado: ${file.name}`);
+        e.target.value = ''; // Permite volver a subir el mismo archivo si se edita
+      };
+      reader.onerror = function() {
+        alert("No se pudo leer el archivo. Verifica que sea un CSV válido.");
+      };
+      reader.readAsText(file, 'UTF-8');
     }
 
     function parseCSVText(text, sourceLabel) {
-      try {
-        if (!text) throw new Error("El texto del archivo está vacío.");
-        
-        // Limpieza profunda de caracteres BOM e invisibles
-        const cleanText = text.replace(/^\uFEFF/, '').trim();
-        const delimiter = cleanText.split('\n')[0].includes(';') ? ';' : ',';
+      if (!text) return;
+      // Eliminar carácter invisible UTF-8 BOM (\uFEFF) al inicio del archivo
+      const cleanText = text.replace(/^\uFEFF/, '').trim();
 
-        Papa.parse(cleanText, {
-          header: true,
-          delimiter: delimiter,
-          skipEmptyLines: true,
-          transformHeader: function(h) { return h.replace(/^\uFEFF/, '').trim(); },
-          complete: function(res) {
-            initData(res.data, sourceLabel);
-          },
-          error: function(err) {
-            throw new Error(`Error en PapaParse: ${err.message}`);
-          }
-        });
-      } catch (err) {
-        window.onerror(err.message, null, "parseCSVText", null, err);
-      }
+      // Auto-detectar delimitador (; o ,) leyendo la primera línea
+      const firstLine = cleanText.split(/\r?\n/)[0] || '';
+      const delimiter = firstLine.includes(';') ? ';' : ',';
+
+      Papa.parse(cleanText, {
+        header: true,
+        delimiter: delimiter,
+        skipEmptyLines: true,
+        transformHeader: h => h.replace(/^\uFEFF/, '').trim(),
+        complete: res => {
+          initData(res.data, sourceLabel);
+        }
+      });
     }
 
-    // Funciones auxiliares ultra-seguras
     function toNumber(val) {
-      if (!val) return 0;
+      if (val === null || val === undefined || val === '') return 0;
       if (typeof val === 'number') return val;
       const clean = String(val).replace('%', '').trim().replace(/\s+/g, '').replace(',', '.');
       const parsed = parseFloat(clean);
@@ -227,113 +493,534 @@
     }
 
     function parseFrescoSano(str) {
-      if (!str) return 0;
-      const match = String(str).match(/\(\s*(\d+(?:[.,]\d+)?)\s*\%?\s*\)/);
-      if (match) return parseFloat(match[1].replace(',', '.'));
-      return toNumber(str); // Si viene solo un número
+      if (!str) return { unid: 0, pct: 0 };
+      const s = String(str).trim();
+      const match = s.match(/(\d+(?:[.,]\d+)?)\s*\(\s*(\d+(?:[.,]\d+)?)\s*%?\s*\)/);
+      if (match) {
+        return {
+          unid: parseFloat(match[1].replace(',', '.')),
+          pct: parseFloat(match[2].replace(',', '.'))
+        };
+      }
+      const val = toNumber(s);
+      return { unid: val, pct: val };
     }
 
-    function getSafeCol(row, possibleNames) {
+    function extractDateOnly(dateTimeStr) {
+      if (!dateTimeStr) return 'Sin Fecha';
+      return String(dateTimeStr).trim().split(' ')[0];
+    }
+
+    function parseDateObj(dateStr) {
+      if (!dateStr) return new Date(0);
+      if (dateStr.includes('-')) return new Date(dateStr);
+      const parts = dateStr.split('/');
+      if (parts.length === 3) return new Date(parts[2], parts[1] - 1, parts[0]);
+      return new Date(dateStr);
+    }
+
+    function getCol(row, names) {
       const keys = Object.keys(row);
-      for (let n of possibleNames) {
-        const cleanN = n.toLowerCase();
-        const found = keys.find(k => k.trim().toLowerCase() === cleanN);
+      for (const n of names) {
+        if (row[n] !== undefined) return row[n];
+        const found = keys.find(k => k.replace(/^\uFEFF/, '').trim().toLowerCase() === n.toLowerCase());
         if (found) return row[found];
       }
       return '';
     }
 
     function initData(rows, sourceLabel) {
-      try {
-        document.getElementById('errorPanel').classList.add('hidden'); // Ocultar errores si funcionó
+      const mapped = rows.map(r => {
+        const lote = String(getCol(r, ['Lote']) || '').trim();
+        const boml = toNumber(getCol(r, ['BOML (Muy Leve %)', 'BOML']));
+        const bol = toNumber(getCol(r, ['BOL (Leve %)', 'BOL']));
+        const bof = toNumber(getCol(r, ['BOF (Fuerte %)', 'BOF']));
+        const camaronera = String(getCol(r, ['Nombre de camaronera', 'Camaronera']) || '').trim();
+        const piscina = String(getCol(r, ['Piscina']) || '').trim();
+        const logistica = String(getCol(r, ['Tipo de logística de pesca', 'Tipo de logistica de pesca', 'Logística']) || '').trim();
+        const fechaFull = String(getCol(r, ['Fecha de llegada', 'Fecha']) || '').trim();
+        const fechaDia = extractDateOnly(fechaFull);
+        const gramEntero = toNumber(getCol(r, ['Meta_Gramaje entero', 'Gramaje entero']));
+        const gramCola = toNumber(getCol(r, ['Meta_Gramaje cola', 'Gramaje cola']));
+        const fresco = parseFrescoSano(getCol(r, ['E. fresco y sano', 'Fresco y sano']));
+        const libras = toNumber(getCol(r, ['Libras recibidas total', 'Libras recibidas']));
+        const clase = String(getCol(r, ['Clase a empacar', 'Clase']) || 'SIN CLASE').trim().toUpperCase();
 
-        const mapped = rows.map(r => {
-          const lote = String(getSafeCol(r, ['Lote'])).trim();
-          if (!lote) return null;
+        return {
+          Lote: lote,
+          BOML: boml,
+          BOL: bol,
+          BOF: bof,
+          TotalBranquias: boml + bol + bof,
+          CriticoBranquias: bol + bof,
+          Camaronera: camaronera || 'Sin Especificar',
+          Piscina: piscina || 'S/P',
+          Logistica: logistica,
+          FechaFull: fechaFull,
+          FechaDia: fechaDia,
+          GramajeEntero: gramEntero,
+          GramajeCola: gramCola,
+          SanoUnid: fresco.unid,
+          SanoPct: fresco.pct,
+          Libras: libras,
+          Clase: clase
+        };
+      }).filter(r => r.Lote !== '');
 
-          return {
-            Lote: lote,
-            Camaronera: String(getSafeCol(r, ['Nombre de camaronera', 'Camaronera']) || 'S/E').trim(),
-            Logistica: String(getSafeCol(r, ['Tipo de logística de pesca', 'Logística']) || 'S/E').trim(),
-            Clase: String(getSafeCol(r, ['Clase a empacar', 'Clase']) || 'SIN CLASE').trim().toUpperCase(),
-            BOML: toNumber(getSafeCol(r, ['BOML (Muy Leve %)', 'BOML'])),
-            BOL: toNumber(getSafeCol(r, ['BOL (Leve %)', 'BOL'])),
-            BOF: toNumber(getSafeCol(r, ['BOF (Fuerte %)', 'BOF'])),
-            SanoPct: parseFrescoSano(getSafeCol(r, ['E. fresco y sano', 'Fresco y sano'])),
-            Libras: toNumber(getSafeCol(r, ['Libras recibidas total', 'Libras recibidas']))
-          };
-        }).filter(r => r !== null);
-
-        if (mapped.length === 0) {
-          throw new Error("No se encontraron lotes. Revisa que el archivo tenga una columna llamada 'Lote'. Las columnas que detecté fueron: " + Object.keys(rows[0] || {}).join(", "));
-        }
-
-        rawRows = mapped;
-        
-        const st = document.getElementById('statusCarga');
-        st.textContent = `✅ ${sourceLabel} (${rawRows.length} lotes)`;
-        st.className = "text-emerald-400 text-xs font-bold bg-slate-800 px-2 py-1 rounded border border-slate-700";
-        
-        document.getElementById('mainContent').style.display = "block";
-
-        populateSelects();
-        applyFilters();
-
-      } catch (err) {
-        window.onerror(err.message, null, "initData", null, err);
+      if (!mapped.length) {
+        alert("El archivo seleccionado no contiene la columna 'Lote' o tiene un formato distinto.");
+        return;
       }
+
+      rawRows = mapped;
+      const st = document.getElementById('statusCarga');
+      st.textContent = `✅ ${ sourceLabel } (${ rawRows.length.toLocaleString() } filas)`;
+      st.className = "text-emerald-400 text-xs font-bold";
+
+      populateSelects();
+      applyFilters();
+    }
+
+    function getProcessedDataset() {
+      if (!document.getElementById('chkDeduplicar').checked) {
+        return rawRows.map(r => ({ ...r, Logistica: r.Logistica || 'Sin especificar' }));
+      }
+      const map = new Map();
+      for (const item of rawRows) {
+        const key = `${item.Lote}_${item.Piscina}_${item.Camaronera}`;
+        if (!map.has(key)) {
+          map.set(key, { ...item });
+        } else {
+          const ex = map.get(key);
+          if (!ex.Logistica && item.Logistica) ex.Logistica = item.Logistica;
+          if (!ex.Libras && item.Libras) ex.Libras = item.Libras;
+        }
+      }
+      return Array.from(map.values()).map(r => ({ ...r, Logistica: r.Logistica || 'Sin especificar' }));
     }
 
     function populateSelects() {
-      const uCam = [...new Set(rawRows.map(r => r.Camaronera))].sort();
-      const uLog = [...new Set(rawRows.map(r => r.Logistica))].sort();
-      const uCla = [...new Set(rawRows.map(r => r.Clase))].sort();
+      const base = getProcessedDataset();
+      updateSel('fCamaronera', new Set(base.map(l => l.Camaronera)), 'Todas');
+      updateSel('fLogistica', new Set(base.map(l => l.Logistica)), 'Todas');
+      updateSel('fClase', new Set(base.map(l => l.Clase)), 'Todas');
+    }
 
-      const fill = (id, arr) => {
-        const el = document.getElementById(id);
-        const val = el.value;
-        el.innerHTML = '<option value="ALL">Todas</option>' + arr.map(x => `<option value="${x}">${x}</option>`).join('');
-        if (arr.includes(val)) el.value = val;
-      };
-      
-      fill('fCamaronera', uCam);
-      fill('fLogistica', uLog);
-      fill('fClase', uCla);
+    function updateSel(id, iterable, defaultText) {
+      const el = document.getElementById(id);
+      const prev = el.value;
+      const arr = Array.from(iterable).filter(Boolean).sort();
+      el.innerHTML = `<option value="ALL">${defaultText}</option>` + arr.map(v => `<option value="${v}">${v}</option>`).join('');
+      if (arr.includes(prev)) el.value = prev;
     }
 
     function debounceFilter() {
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(applyFilters, 250);
+      debounceTimer = setTimeout(() => applyFilters(), 200);
     }
 
     function applyFilters() {
-      try {
-        const fCam = document.getElementById('fCamaronera').value;
-        const fLog = document.getElementById('fLogistica').value;
-        const fCla = document.getElementById('fClase').value;
-        const fSev = document.getElementById('fSeveridad').value;
-        const q = document.getElementById('fBusqueda').value.toLowerCase();
-        const dedup = document.getElementById('chkDeduplicar').checked;
+      const base = getProcessedDataset();
+      const fCam = document.getElementById('fCamaronera').value;
+      const fLog = document.getElementById('fLogistica').value;
+      const fCla = document.getElementById('fClase').value;
+      const fSev = document.getElementById('fSeveridad').value;
+      const q = document.getElementById('fBusqueda').value.trim().toLowerCase();
 
-        // Deduplicación sencilla
-        let base = rawRows;
-        if (dedup) {
-          const map = new Map();
-          base.forEach(r => map.set(r.Lote, r));
-          base = Array.from(map.values());
+      filteredLots = base.filter(l => {
+        if (fCam !== 'ALL' && l.Camaronera !== fCam) return false;
+        if (fLog !== 'ALL' && l.Logistica !== fLog) return false;
+        if (fCla !== 'ALL' && l.Clase !== fCla) return false;
+        if (fSev === 'BOF' && l.BOF <= 0) return false;
+        if (fSev === 'BOL' && l.BOL <= 0) return false;
+        if (fSev === 'BOML' && l.BOML <= 0) return false;
+        if (fSev === 'LIMPIO' && (l.BOML > 0 || l.BOL > 0 || l.BOF > 0)) return false;
+        if (q !== '' && !l.Lote.toLowerCase().includes(q) && !l.Piscina.toLowerCase().includes(q)) return false;
+        return true;
+      });
+
+      currentPage = 1;
+      renderDashboard();
+      renderRawTable();
+    }
+
+    function renderDashboard() {
+      const n = filteredLots.length;
+      const totalLbs = filteredLots.reduce((a, b) => a + b.Libras, 0);
+      const avgSanoPct = n > 0 ? filteredLots.reduce((a, b) => a + b.SanoPct, 0) / n : 0;
+      const avgSanoUnid = n > 0 ? filteredLots.reduce((a, b) => a + b.SanoUnid, 0) / n : 0;
+      const avgBOML = n > 0 ? filteredLots.reduce((a, b) => a + b.BOML, 0) / n : 0;
+      const avgBOL = n > 0 ? filteredLots.reduce((a, b) => a + b.BOL, 0) / n : 0;
+      const avgBOF = n > 0 ? filteredLots.reduce((a, b) => a + b.BOF, 0) / n : 0;
+      const avgGramEntero = n > 0 ? filteredLots.reduce((a, b) => a + b.GramajeEntero, 0) / n : 0;
+      const avgGramCola = n > 0 ? filteredLots.reduce((a, b) => a + b.GramajeCola, 0) / n : 0;
+
+      const lotesBOML = filteredLots.filter(r => r.BOML > 0).length;
+      const lotesBOL = filteredLots.filter(r => r.BOL > 0).length;
+      const lotesBOF = filteredLots.filter(r => r.BOF > 0).length;
+
+      const lbsClaseA = filteredLots.filter(r => r.Clase === 'A-PRIMERA').reduce((a, b) => a + b.Libras, 0);
+      const pctClaseA = totalLbs > 0 ? (lbsClaseA / totalLbs) * 100 : 0;
+
+      document.getElementById('kpiLotes').textContent = n.toLocaleString('es-EC');
+      document.getElementById('kpiLibras').textContent = `${Math.round(totalLbs).toLocaleString('es-EC')} lbs recibidas`;
+      document.getElementById('kpiSanoPct').textContent = `${avgSanoPct.toFixed(2)}%`;
+      document.getElementById('kpiSanoUnid').textContent = `Prom. ${avgSanoUnid.toFixed(1)} unid/muestra`;
+      document.getElementById('kpiBOML').textContent = `${avgBOML.toFixed(1)}%`;
+      document.getElementById('kpiBOMLLotes').textContent = `${lotesBOML} lotes con BOML > 0%`;
+      document.getElementById('kpiBOL').textContent = `${avgBOL.toFixed(1)}%`;
+      document.getElementById('kpiBOLLotes').textContent = `${lotesBOL} lotes con BOL > 0%`;
+      document.getElementById('kpiBOF').textContent = `${avgBOF.toFixed(1)}%`;
+      document.getElementById('kpiBOFLotes').textContent = `${lotesBOF} lotes críticos (BOF > 0%)`;
+      document.getElementById('kpiGramaje').textContent = `${avgGramEntero.toFixed(2)} g`;
+      document.getElementById('kpiClaseAPct').textContent = `Cola: ${avgGramCola.toFixed(1)}g | ${pctClaseA.toFixed(1)}% Clase A`;
+
+      const clasesOrder = ['A-PRIMERA', 'B-SEGUNDA', 'C-TERCERO'];
+      const lbsPorClase = clasesOrder.map(c => Math.round(filteredLots.filter(r => r.Clase === c).reduce((a, b) => a + b.Libras, 0)));
+
+      if (charts.clasesPie) charts.clasesPie.destroy();
+      charts.clasesPie = new Chart(document.getElementById('chartClasesPie'), {
+        type: 'doughnut',
+        data: {
+          labels: clasesOrder,
+          datasets: [{ data: lbsPorClase, backgroundColor: clasesOrder.map(c => CLASE_COLORS[c]) }]
+        },
+        options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+      });
+
+      const avgByClase = (cl, field) => {
+        const sub = filteredLots.filter(r => r.Clase === cl);
+        return sub.length > 0 ? (sub.reduce((a, b) => a + b[field], 0) / sub.length).toFixed(1) : 0;
+      };
+
+      if (charts.branquiasClase) charts.branquiasClase.destroy();
+      charts.branquiasClase = new Chart(document.getElementById('chartBranquiasPorClase'), {
+        type: 'bar',
+        data: {
+          labels: clasesOrder,
+          datasets: [
+            { label: 'BOML (Muy Leve %)', backgroundColor: '#facc15', data: clasesOrder.map(c => avgByClase(c, 'BOML')) },
+            { label: 'BOL (Leve %)', backgroundColor: '#f97316', data: clasesOrder.map(c => avgByClase(c, 'BOL')) },
+            { label: 'BOF (Fuerte %)', backgroundColor: '#dc2626', data: clasesOrder.map(c => avgByClase(c, 'BOF')) }
+          ]
+        },
+        options: {
+          maintainAspectRatio: false,
+          scales: { x: { stacked: true }, y: { stacked: true, title: { display: true, text: '% Promedio Acumulado' } } }
         }
+      });
 
-        filteredLots = base.filter(r => {
-          if (fCam !== 'ALL' && r.Camaronera !== fCam) return false;
-          if (fLog !== 'ALL' && r.Logistica !== fLog) return false;
-          if (fCla !== 'ALL' && r.Clase !== fCla) return false;
-          if (fSev === 'BOF' && r.BOF === 0) return false;
-          if (fSev === 'BOL' && r.BOL === 0) return false;
-          if (fSev === 'LIMPIO' && (r.BOML > 0 || r.BOL > 0 || r.BOF > 0)) return false;
-          if (q && !r.Lote.toLowerCase().includes(q)) return false;
-          return true;
-        });
+      const diaMap = {};
+      filteredLots.forEach(r => {
+        if (!diaMap[r.FechaDia]) diaMap[r.FechaDia] = { count: 0, sano: 0, bol: 0, bof: 0 };
+        diaMap[r.FechaDia].count++;
+        diaMap[r.FechaDia].sano += r.SanoPct;
+        diaMap[r.FechaDia].bol += r.BOL;
+        diaMap[r.FechaDia].bof += r.BOF;
+      });
+      const fechasSort = Object.keys(diaMap).sort((a, b) => parseDateObj(a) - parseDateObj(b));
 
-        renderDashboard();
-      } catch (err) {
-        window.onerror(err.message, null, "applyFilters", null, err);
+      if (charts.tendencia) charts.tendencia.destroy();
+      charts.tendencia = new Chart(document.getElementById('chartTendencia'), {
+        type: 'line',
+        data: {
+          labels: fechasSort,
+          datasets: [
+            { label: '% E. Fresco y Sano', data: fechasSort.map(f => (diaMap[f].sano / diaMap[f].count).toFixed(1)), borderColor: '#16a34a', backgroundColor: 'rgba(22,163,74,0.1)', fill: true, tension: 0.3 },
+            { label: '% BOL (Leve)', data: fechasSort.map(f => (diaMap[f].bol / diaMap[f].count).toFixed(1)), borderColor: '#f97316', tension: 0.3 },
+            { label: '% BOF (Fuerte)', data: fechasSort.map(f => (diaMap[f].bof / diaMap[f].count).toFixed(1)), borderColor: '#dc2626', tension: 0.3 }
+          ]
+        },
+        options: { maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
+      });
+
+      const topBranquiasLots = [...filteredLots].sort((a, b) => (b.BOF * 3 + b.BOL * 2 + b.BOML) - (a.BOF * 3 + a.BOL * 2 + a.BOML)).slice(0, 25);
+      if (charts.lotesBranquias) charts.lotesBranquias.destroy();
+      charts.lotesBranquias = new Chart(document.getElementById('chartLotesBranquias'), {
+        type: 'bar',
+        data: {
+          labels: topBranquiasLots.map(r => `${r.Lote} (${r.Piscina})`),
+          datasets: [
+            { label: 'BOML (Muy Leve %)', data: topBranquiasLots.map(r => r.BOML), backgroundColor: '#facc15' },
+            { label: 'BOL (Leve %)', data: topBranquiasLots.map(r => r.BOL), backgroundColor: '#f97316' },
+            { label: 'BOF (Fuerte %)', data: topBranquiasLots.map(r => r.BOF), backgroundColor: '#dc2626' }
+          ]
+        },
+        options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } } }
+      });
+
+      if (charts.sevDoughnut) charts.sevDoughnut.destroy();
+      charts.sevDoughnut = new Chart(document.getElementById('chartSeveridadDoughnut'), {
+        type: 'doughnut',
+        data: {
+          labels: ['BOML (Muy Leve)', 'BOL (Leve)', 'BOF (Fuerte)'],
+          datasets: [{
+            data: [avgBOML.toFixed(1), avgBOL.toFixed(1), avgBOF.toFixed(1)],
+            backgroundColor: ['#facc15', '#f97316', '#dc2626']
+          }]
+        },
+        options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+      });
+
+      const badgeClase = cl => cl === 'A-PRIMERA' ? 'badge-a' : (cl === 'B-SEGUNDA' ? 'badge-b' : 'badge-c');
+      const sortedAuditoria = [...filteredLots].sort((a, b) => b.BOF - a.BOF || b.BOL - a.BOL || b.BOML - a.BOML);
+      document.getElementById('tbodyBranquiasCriticas').innerHTML = sortedAuditoria.slice(0, 50).map(r => `
+        <tr class="hover:bg-red-50/40">
+          <td class="p-2 font-bold">${r.Lote}</td>
+          <td class="p-2">${r.Camaronera}</td>
+          <td class="p-2 font-mono">${r.Piscina}</td>
+          <td class="p-2 text-slate-500">${r.FechaFull}</td>
+          <td class="p-2 text-right">${r.BOML > 0 ? \`<span class="badge-boml-leve px-2 py-0.5 rounded font-bold">\${r.BOML}%</span>\` : '0%'}</td>
+          <td class="p-2 text-right">${r.BOL > 0 ? \`<span class="badge-bol-alerta px-2 py-0.5 rounded font-bold">\${r.BOL}%</span>\` : '0%'}</td>
+          <td class="p-2 text-right">${r.BOF > 0 ? \`<span class="badge-bof-critico px-2 py-0.5 rounded font-bold">\${r.BOF}%</span>\` : '0%'}</td>
+          <td class="p-2 text-right font-semibold">${r.SanoUnid} (${r.SanoPct.toFixed(2)}%)</td>
+          <td class="p-2 text-right">${r.Libras.toLocaleString('es-EC', { minimumFractionDigits: 2 })}</td>
+          <td class="p-2 text-center"><span class="${badgeClase(r.Clase)} text-[10px] px-2 py-0.5 rounded font-bold">${r.Clase}</span></td>
+        </tr>
+      `).join('');
+
+      const camMap = {};
+      filteredLots.forEach(r => {
+        if (!camMap[r.Camaronera]) camMap[r.Camaronera] = { lotes: 0, lbs: 0, lbsA: 0, sano: 0, boml: 0, bol: 0, bof: 0 };
+        const c = camMap[r.Camaronera];
+        c.lotes++; c.lbs += r.Libras;
+        if (r.Clase === 'A-PRIMERA') c.lbsA += r.Libras;
+        c.sano += r.SanoPct; c.boml += r.BOML; c.bol += r.BOL; c.bof += r.BOF;
+      });
+      document.getElementById('tbodyCamaronerasResumen').innerHTML = Object.entries(camMap).sort((a, b) => b[1].lbs - a[1].lbs).map(([name, d]) => `
+        <tr class="hover:bg-slate-50">
+          <td class="p-2.5 font-bold">${name}</td>
+          <td class="p-2.5 text-right">${d.lotes}</td>
+          <td class="p-2.5 text-right font-semibold">${Math.round(d.lbs).toLocaleString('es-EC')}</td>
+          <td class="p-2.5 text-right font-bold text-emerald-700">${(d.sano / d.lotes).toFixed(2)}%</td>
+          <td class="p-2.5 text-right text-yellow-700 font-semibold">${(d.boml / d.lotes).toFixed(1)}%</td>
+          <td class="p-2.5 text-right text-orange-700 font-semibold">${(d.bol / d.lotes).toFixed(1)}%</td>
+          <td class="p-2.5 text-right text-red-700 font-bold">${(d.bof / d.lotes).toFixed(1)}%</td>
+          <td class="p-2.5 text-right font-bold text-green-700">${d.lbs > 0 ? ((d.lbsA / d.lbs) * 100).toFixed(1) : 0}%</td>
+        </tr>
+      `).join('');
+
+      const piscMap = {};
+      filteredLots.forEach(r => {
+        const k = `${r.Camaronera}||${r.Piscina}`;
+        if (!piscMap[k]) piscMap[k] = { cam: r.Camaronera, pisc: r.Piscina, lotes: 0, sano: 0, bol: 0, bof: 0 };
+        piscMap[k].lotes++; piscMap[k].sano += r.SanoPct; piscMap[k].bol += r.BOL; piscMap[k].bof += r.BOF;
+      });
+      const piscArr = Object.values(piscMap).map(p => ({
+        ...p, avgSano: p.sano / p.lotes, avgBOL: p.bol / p.lotes, avgBOF: p.bof / p.lotes
+      }));
+      const topMejores = [...piscArr].sort((a, b) => b.avgSano - a.avgSano).slice(0, 10);
+      const topPeores = [...piscArr].sort((a, b) => a.avgSano - b.avgSano).slice(0, 10);
+
+      document.getElementById('tbodyMejoresPiscinas').innerHTML = topMejores.map(p => `
+        <tr>
+          <td class="p-2 font-bold">${p.cam}</td>
+          <td class="p-2 font-mono">${p.pisc}</td>
+          <td class="p-2 text-right">${p.lotes}</td>
+          <td class="p-2 text-right text-xs">BOL ${p.avgBOL.toFixed(0)}% / BOF ${p.avgBOF.toFixed(0)}%</td>
+          <td class="p-2 text-right font-bold text-green-700">${p.avgSano.toFixed(2)}%</td>
+        </tr>`).join('');
+
+      document.getElementById('tbodyPeoresPiscinas').innerHTML = topPeores.map(p => `
+        <tr>
+          <td class="p-2 font-bold">${p.cam}</td>
+          <td class="p-2 font-mono">${p.pisc}</td>
+          <td class="p-2 text-right">${p.lotes}</td>
+          <td class="p-2 text-right text-xs font-semibold text-red-700">BOL ${p.avgBOL.toFixed(0)}% / BOF ${p.avgBOF.toFixed(0)}%</td>
+          <td class="p-2 text-right font-bold text-red-700">${p.avgSano.toFixed(2)}%</td>
+        </tr>`).join('');
+
+      const logMap = {};
+      filteredLots.forEach(r => {
+        if (!logMap[r.Logistica]) logMap[r.Logistica] = { lotes: 0, lbs: 0, sano: 0, boml: 0, bol: 0, bof: 0, 'A-PRIMERA': 0, 'B-SEGUNDA': 0, 'C-TERCERO': 0 };
+        const lg = logMap[r.Logistica];
+        lg.lotes++; lg.lbs += r.Libras; lg.sano += r.SanoPct; lg.boml += r.BOML; lg.bol += r.BOL; lg.bof += r.BOF;
+        if (lg[r.Clase] !== undefined) lg[r.Clase] += r.Libras;
+      });
+      const logKeys = Object.keys(logMap);
+
+      if (charts.logComp) charts.logComp.destroy();
+      charts.logComp = new Chart(document.getElementById('chartLogisticaComparativa'), {
+        type: 'bar',
+        data: {
+          labels: logKeys,
+          datasets: [
+            { label: '% Fresco y Sano', backgroundColor: '#16a34a', data: logKeys.map(k => (logMap[k].sano / logMap[k].lotes).toFixed(1)) },
+            { label: '% BOL (Leve)', backgroundColor: '#f97316', data: logKeys.map(k => (logMap[k].bol / logMap[k].lotes).toFixed(1)) },
+            { label: '% BOF (Fuerte)', backgroundColor: '#dc2626', data: logKeys.map(k => (logMap[k].bof / logMap[k].lotes).toFixed(1)) }
+          ]
+        },
+        options: { maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
+      });
+
+      if (charts.logClases) charts.logClases.destroy();
+      charts.logClases = new Chart(document.getElementById('chartLogisticaClases'), {
+        type: 'bar',
+        data: {
+          labels: logKeys,
+          datasets: clasesOrder.map(cl => ({
+            label: cl,
+            backgroundColor: CLASE_COLORS[cl],
+            data: logKeys.map(k => logMap[k].lbs > 0 ? ((logMap[k][cl] / logMap[k].lbs) * 100).toFixed(1) : 0)
+          }))
+        },
+        options: { maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, max: 100 } } }
+      });
+
+      document.getElementById('tbodyLogistica').innerHTML = logKeys.map(k => {
+        const d = logMap[k];
+        return `<tr class="hover:bg-slate-50">
+          <td class="p-2.5 font-bold">${k}</td>
+          <td class="p-2.5 text-right">${d.lotes}</td>
+          <td class="p-2.5 text-right font-semibold">${Math.round(d.lbs).toLocaleString('es-EC')}</td>
+          <td class="p-2.5 text-right font-bold text-emerald-700">${(d.sano / d.lotes).toFixed(2)}%</td>
+          <td class="p-2.5 text-right">${(d.boml / d.lotes).toFixed(1)}%</td>
+          <td class="p-2.5 text-right text-orange-700 font-semibold">${(d.bol / d.lotes).toFixed(1)}%</td>
+          <td class="p-2.5 text-right text-red-700 font-bold">${(d.bof / d.lotes).toFixed(1)}%</td>
+          <td class="p-2.5 text-right font-bold text-green-700">${d.lbs > 0 ? ((d['A-PRIMERA'] / d.lbs) * 100).toFixed(1) : 0}%</td>
+        </tr>`;
+      }).join('');
+
+      const MAX_PTS = 1500;
+      const sample = filteredLots.length > MAX_PTS
+        ? filteredLots.filter((_, i) => i % Math.ceil(filteredLots.length / MAX_PTS) === 0)
+        : filteredLots;
+
+      if (charts.corrBranquias) charts.corrBranquias.destroy();
+      charts.corrBranquias = new Chart(document.getElementById('chartCorrBranquiasSano'), {
+        type: 'scatter',
+        data: {
+          datasets: clasesOrder.map(cl => ({
+            label: cl,
+            backgroundColor: CLASE_COLORS[cl],
+            pointRadius: 5,
+            data: sample.filter(r => r.Clase === cl).map(r => ({
+              x: r.CriticoBranquias,
+              y: r.SanoPct,
+              lote: r.Lote,
+              pisc: r.Piscina,
+              bol: r.BOL,
+              bof: r.BOF
+            }))
+          }))
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: ctx => \`Lote \${ctx.raw.lote} (\${ctx.raw.pisc}): BOL \${ctx.raw.bol}% + BOF \${ctx.raw.bof}% | Sano: \${ctx.raw.y}%\`
+              }
+            }
+          },
+          scales: {
+            x: { title: { display: true, text: 'Suma BOL (Leve %) + BOF (Fuerte %)' } },
+            y: { title: { display: true, text: '% E. Fresco y Sano' }, min: 0, max: 100 }
+          }
+        }
+      });
+
+      if (charts.corrGram) charts.corrGram.destroy();
+      charts.corrGram = new Chart(document.getElementById('chartCorrGramajes'), {
+        type: 'scatter',
+        data: {
+          datasets: clasesOrder.map(cl => ({
+            label: cl,
+            backgroundColor: CLASE_COLORS[cl],
+            pointRadius: 5,
+            data: sample.filter(r => r.Clase === cl).map(r => ({
+              x: r.GramajeEntero,
+              y: r.GramajeCola,
+              lote: r.Lote,
+              sano: r.SanoPct
+            }))
+          }))
+        },
+        options: {
+          maintainAspectRatio: false,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: ctx => \`Lote \${ctx.raw.lote}: Entero \${ctx.raw.x}g | Cola \${ctx.raw.y}g (Sano: \${ctx.raw.sano}%)\`
+              }
+            }
+          },
+          scales: {
+            x: { title: { display: true, text: 'Meta Gramaje Entero (g)' } },
+            y: { title: { display: true, text: 'Meta Gramaje Cola (g)' } }
+          }
+        }
+      });
+    }
+
+    function renderRawTable() {
+      const totalPages = Math.max(1, Math.ceil(filteredLots.length / ROWS_PER_PAGE));
+      if (currentPage > totalPages) currentPage = totalPages;
+      const start = (currentPage - 1) * ROWS_PER_PAGE;
+      const items = filteredLots.slice(start, start + ROWS_PER_PAGE);
+
+      document.getElementById('tableCountInfo').textContent = \`Mostrando \${filteredLots.length ? start + 1 : 0} - \${Math.min(start + ROWS_PER_PAGE, filteredLots.length)} de \${filteredLots.length.toLocaleString('es-EC')} lotes\`;
+      document.getElementById('pageIndicator').textContent = \`Página \${currentPage} de \${totalPages}\`;
+
+      const badgeClase = cl => cl === 'A-PRIMERA' ? 'badge-a' : (cl === 'B-SEGUNDA' ? 'badge-b' : 'badge-c');
+
+      document.getElementById('tbodyRawData').innerHTML = items.map(r => `
+        <tr class="hover:bg-slate-100">
+          <td class="p-2 font-bold">${r.Lote}</td>
+          <td class="p-2 text-right font-semibold text-yellow-700">${r.BOML}%</td>
+          <td class="p-2 text-right font-semibold text-orange-700">${r.BOL}%</td>
+          <td class="p-2 text-right font-bold ${r.BOF > 0 ? 'text-red-600' : 'text-slate-400'}">${r.BOF}%</td>
+          <td class="p-2">${r.Camaronera}</td>
+          <td class="p-2 font-mono">${r.Piscina}</td>
+          <td class="p-2">${r.Logistica}</td>
+          <td class="p-2 text-slate-500">${r.FechaFull}</td>
+          <td class="p-2 text-right">${r.GramajeEntero.toFixed(2)}</td>
+          <td class="p-2 text-right">${r.GramajeCola.toFixed(2)}</td>
+          <td class="p-2 text-right font-semibold">${r.SanoUnid} (${r.SanoPct.toFixed(2)}%)</td>
+          <td class="p-2 text-right font-bold">${r.Libras.toLocaleString('es-EC', { minimumFractionDigits: 2 })}</td>
+          <td class="p-2 text-center"><span class="${badgeClase(r.Clase)} text-[10px] px-2 py-0.5 rounded font-bold">${r.Clase}</span></td>
+        </tr>
+      `).join('');
+    }
+
+    function changePage(delta) {
+      const totalPages = Math.max(1, Math.ceil(filteredLots.length / ROWS_PER_PAGE));
+      const next = currentPage + delta;
+      if (next >= 1 && next <= totalPages) {
+        currentPage = next;
+        renderRawTable();
+      }
+    }
+
+    function exportCSV() {
+      if (!filteredLots.length) return;
+      const headers = ['Lote', 'BOML (Muy Leve %)', 'BOL (Leve %)', 'BOF (Fuerte %)', 'Nombre de camaronera', 'Piscina', 'Tipo de logística de pesca', 'Fecha de llegada', 'Meta_Gramaje entero', 'Meta_Gramaje cola', 'Unidades Fresco y Sano', 'Porcentaje Fresco y Sano', 'Libras recibidas total', 'Clase a empacar'];
+      const rows = filteredLots.map(r => [
+        \`"\${r.Lote}"\`, \`\${r.BOML}%\`, \`\${r.BOL}%\`, \`\${r.BOF}%\`, \`"\${r.Camaronera}"\`, \`"\${r.Piscina}"\`, \`"\${r.Logistica}"\`, \`"\${r.FechaFull}"\`,
+        r.GramajeEntero, r.GramajeCola, r.SanoUnid, r.SanoPct, r.Libras, \`"\${r.Clase}"\`
+      ].join(';'));
+
+      const blob = new Blob(["\uFEFF" + headers.join(';') + '\n' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'Reporte_Branquias_Filtrado.csv';
+      a.click();
+    }
+
+    function resetFilters() {
+      ['fCamaronera', 'fLogistica', 'fClase', 'fSeveridad'].forEach(id => document.getElementById(id).value = 'ALL');
+      document.getElementById('fBusqueda').value = '';
+      applyFilters();
+    }
+
+    function switchTab(id) {
+      ['tab1', 'tab2', 'tab3', 'tab4', 'tab5', 'tab6'].forEach(t => {
+        document.getElementById(t).classList.add('hidden');
+        document.getElementById('btn-' + t).classList.remove('tab-active');
+      });
+      document.getElementById(id).classList.remove('hidden');
+      document.getElementById('btn-' + id).classList.add('tab-active');
+    }
+  </script>
+</body>
+</html>
