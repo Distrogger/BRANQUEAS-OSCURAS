@@ -3,10 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Directivo - Control de Branquias y Calidad de Recepción</title>
+  <title>Dashboard Directivo - Control de Branquias y Calidad</title>
+  
+  <!-- CDNs alternativos y más estables -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  
   <style>
     body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #f1f5f9; }
     .tab-active { border-bottom: 3px solid #2563eb; color: #1d4ed8; font-weight: 700; background-color: #eff6ff; }
@@ -26,9 +29,9 @@
       <div>
         <div class="flex items-center gap-2">
           <span class="bg-blue-600 text-xs font-bold uppercase px-2.5 py-1 rounded">Control de Calidad - Recepción</span>
-          <span class="text-emerald-400 text-xs font-bold" id="statusCarga">Iniciando sistema...</span>
+          <span class="text-emerald-400 text-xs font-bold bg-slate-800 px-2 py-1 rounded border border-slate-700" id="statusCarga">Iniciando sistema...</span>
         </div>
-        <h1 class="text-xl md:text-2xl font-bold mt-1">Visión Directiva: Monitoreo de Branquias (BOML / BOL / BOF) y Clasificación</h1>
+        <h1 class="text-xl md:text-2xl font-bold mt-1">Visión Directiva: Monitoreo de Branquias</h1>
       </div>
       
       <div class="flex flex-wrap items-center gap-3">
@@ -44,342 +47,293 @@
     </div>
   </header>
 
+  <!-- PANTALLA DE ERROR VISIBLE (SI ALGO FALLA) -->
+  <div id="errorPanel" class="max-w-[1440px] mx-auto px-4 py-3 mt-4 bg-red-100 border-l-4 border-red-600 text-red-800 hidden">
+    <h3 class="font-bold text-sm">Se detectó un problema técnico:</h3>
+    <p id="errorMsg" class="text-xs mt-1 font-mono"></p>
+  </div>
+
   <!-- FILTROS GLOBALES -->
-  <section class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20">
+  <section class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-20 mt-4">
     <div class="max-w-[1440px] mx-auto px-4 py-3 grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
-      <div>
-        <label class="block text-xs font-semibold text-slate-500 mb-1">Camaronera</label>
-        <select id="fCamaronera" onchange="applyFilters()" class="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select>
-      </div>
-      <div>
-        <label class="block text-xs font-semibold text-slate-500 mb-1">Logística de Pesca</label>
-        <select id="fLogistica" onchange="applyFilters()" class="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select>
-      </div>
-      <div>
-        <label class="block text-xs font-semibold text-slate-500 mb-1">Clase a Empacar</label>
-        <select id="fClase" onchange="applyFilters()" class="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select>
-      </div>
+      <div><label class="block text-xs font-semibold text-slate-500 mb-1">Camaronera</label><select id="fCamaronera" onchange="applyFilters()" class="w-full border rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select></div>
+      <div><label class="block text-xs font-semibold text-slate-500 mb-1">Logística de Pesca</label><select id="fLogistica" onchange="applyFilters()" class="w-full border rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select></div>
+      <div><label class="block text-xs font-semibold text-slate-500 mb-1">Clase a Empacar</label><select id="fClase" onchange="applyFilters()" class="w-full border rounded-md px-2 py-1.5 text-sm bg-white"><option value="ALL">Todas</option></select></div>
       <div>
         <label class="block text-xs font-semibold text-slate-500 mb-1">Filtro Branquias</label>
-        <select id="fSeveridad" onchange="applyFilters()" class="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm bg-white">
+        <select id="fSeveridad" onchange="applyFilters()" class="w-full border rounded-md px-2 py-1.5 text-sm bg-white">
           <option value="ALL">Todos los Lotes</option>
-          <option value="BOF">🚨 Con BOF (Fuerte > 0%)</option>
-          <option value="BOL">⚠️ Con BOL (Leve > 0%)</option>
-          <option value="BOML">🔸 Con BOML (Muy Leve > 0%)</option>
-          <option value="LIMPIO">✅ Sin defecto (0% en los 3)</option>
+          <option value="BOF">🚨 Con BOF (Fuerte)</option>
+          <option value="BOL">⚠️ Con BOL (Leve)</option>
+          <option value="LIMPIO">✅ Sin defecto</option>
         </select>
       </div>
-      <div>
-        <label class="block text-xs font-semibold text-slate-500 mb-1">Buscar Lote / Piscina</label>
-        <input type="text" id="fBusqueda" oninput="debounceFilter()" placeholder="Ej: 1457532 o PD310A" class="w-full border border-slate-300 rounded-md px-2.5 py-1.5 text-sm">
-      </div>
-      <div>
-        <button onclick="resetFilters()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1.5 px-3 rounded-md text-sm transition">Limpiar Filtros</button>
-      </div>
+      <div><label class="block text-xs font-semibold text-slate-500 mb-1">Buscar Lote</label><input type="text" id="fBusqueda" oninput="debounceFilter()" placeholder="Ej: 1457532" class="w-full border rounded-md px-2.5 py-1.5 text-sm"></div>
+      <div><button onclick="resetFilters()" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold py-1.5 px-3 rounded-md text-sm transition">Limpiar Filtros</button></div>
     </div>
   </section>
 
   <!-- CONTENIDO PRINCIPAL -->
-  <main class="max-w-[1440px] mx-auto px-4 py-5" id="mainContent">
-    
+  <main class="max-w-[1440px] mx-auto px-4 py-5" id="mainContent" style="display: none;">
     <!-- KPIs -->
-    <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-6">
-      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-        <p class="text-[10px] text-slate-500 font-bold uppercase">Lotes Analizados</p>
-        <p id="kpiLotes" class="text-2xl font-extrabold mt-1">0</p>
-        <p id="kpiLibras" class="text-[11px] text-blue-600 font-bold mt-1">0 lbs totales</p>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-emerald-500">
-        <p class="text-[10px] text-emerald-700 font-bold uppercase">% E. Fresco y Sano</p>
-        <p id="kpiSanoPct" class="text-2xl font-extrabold text-emerald-600 mt-1">0%</p>
-        <p id="kpiSanoUnid" class="text-[10px] text-slate-500 mt-1">Prom. 0 unid/lote</p>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-yellow-400">
-        <p class="text-[10px] text-yellow-700 font-bold uppercase">Prom. BOML (Muy Leve)</p>
-        <p id="kpiBOML" class="text-2xl font-extrabold text-yellow-600 mt-1">0%</p>
-        <p id="kpiBOMLLotes" class="text-[10px] text-slate-500 mt-1">0 lotes afectados</p>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-500">
-        <p class="text-[10px] text-orange-700 font-bold uppercase">Prom. BOL (Leve)</p>
-        <p id="kpiBOL" class="text-2xl font-extrabold text-orange-600 mt-1">0%</p>
-        <p id="kpiBOLLotes" class="text-[10px] text-slate-500 mt-1">0 lotes afectados</p>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-red-600 bg-red-50/50">
-        <p class="text-[10px] text-red-700 font-bold uppercase">Riesgo Crítico BOF (Fuerte)</p>
-        <p id="kpiBOF" class="text-2xl font-extrabold text-red-600 mt-1">0%</p>
-        <p id="kpiBOFLotes" class="text-[10px] text-red-600 font-bold mt-1">0 lotes críticos</p>
-      </div>
-      <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-indigo-500">
-        <p class="text-[10px] text-indigo-700 font-bold uppercase">Gramaje Promedio</p>
-        <p id="kpiGramaje" class="text-2xl font-extrabold text-indigo-600 mt-1">0 g</p>
-        <p id="kpiClaseAPct" class="text-[10px] text-green-700 font-bold mt-1">0% Lbs en A-PRIMERA</p>
-      </div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      <div class="bg-white p-4 rounded-xl border"><p class="text-[10px] text-slate-500 font-bold uppercase">Lotes Analizados</p><p id="kpiLotes" class="text-2xl font-extrabold mt-1">0</p></div>
+      <div class="bg-white p-4 rounded-xl border-l-4 border-emerald-500"><p class="text-[10px] text-emerald-700 font-bold uppercase">% Fresco y Sano</p><p id="kpiSanoPct" class="text-2xl font-extrabold text-emerald-600 mt-1">0%</p></div>
+      <div class="bg-white p-4 rounded-xl border-l-4 border-yellow-400"><p class="text-[10px] text-yellow-700 font-bold uppercase">Prom. BOML</p><p id="kpiBOML" class="text-2xl font-extrabold text-yellow-600 mt-1">0%</p></div>
+      <div class="bg-white p-4 rounded-xl border-l-4 border-orange-500"><p class="text-[10px] text-orange-700 font-bold uppercase">Prom. BOL</p><p id="kpiBOL" class="text-2xl font-extrabold text-orange-600 mt-1">0%</p></div>
+      <div class="bg-white p-4 rounded-xl border-l-4 border-red-600 bg-red-50"><p class="text-[10px] text-red-700 font-bold uppercase">Riesgo BOF</p><p id="kpiBOF" class="text-2xl font-extrabold text-red-600 mt-1">0%</p></div>
     </div>
 
-    <!-- TABS NAVEGACIÓN -->
+    <!-- TABS -->
     <div class="bg-white rounded-t-xl border border-b-0 border-slate-200 flex overflow-x-auto">
-      <button onclick="switchTab('tab1')" id="btn-tab1" class="px-5 py-3 text-sm font-medium tab-active whitespace-nowrap">📊 1. Resumen Gerencial y Clases</button>
-      <button onclick="switchTab('tab2')" id="btn-tab2" class="px-5 py-3 text-sm font-medium text-red-700 bg-red-50/50 hover:text-red-900 whitespace-nowrap font-bold border-x">🦐 2. Severidad de Branquias (BOML/BOL/BOF)</button>
-      <button onclick="switchTab('tab3')" id="btn-tab3" class="px-5 py-3 text-sm font-medium text-amber-700 bg-amber-50/50 hover:text-amber-900 whitespace-nowrap font-bold border-r">🏆 3. Scorecard Camaroneras y Piscinas</button>
-      <button onclick="switchTab('tab4')" id="btn-tab4" class="px-5 py-3 text-sm font-medium text-blue-700 hover:text-blue-900 whitespace-nowrap font-semibold border-r">🚚 4. Logística de Pesca</button>
-      <button onclick="switchTab('tab5')" id="btn-tab5" class="px-5 py-3 text-sm font-medium text-emerald-700 bg-emerald-50/50 hover:text-emerald-900 whitespace-nowrap font-bold border-r">📈 5. Correlaciones y Gramajes</button>
-      <button onclick="switchTab('tab6')" id="btn-tab6" class="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 whitespace-nowrap">📋 6. Explorador de Datos</button>
+      <button onclick="switchTab('tab1')" id="btn-tab1" class="px-5 py-3 text-sm font-medium tab-active whitespace-nowrap">📊 1. Gráficos de Branquias</button>
+      <button onclick="switchTab('tab2')" id="btn-tab2" class="px-5 py-3 text-sm font-medium text-slate-600 hover:text-slate-900 whitespace-nowrap">📋 2. Tabla de Datos Crudos</button>
     </div>
 
-    <!-- TAB 1: RESUMEN GERENCIAL -->
+    <!-- TAB 1: GRAFICOS -->
     <div id="tab1" class="bg-white p-5 rounded-b-xl shadow-sm border border-slate-200 space-y-6">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <h3 class="text-sm font-bold mb-1">Volumen (Libras) por Clase a Empacar</h3>
-          <p class="text-[10px] text-slate-500 mb-2">Distribución de libras recibidas según clasificación final.</p>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-slate-50 p-4 rounded-xl border">
+          <h3 class="text-sm font-bold mb-1">Distribución por Clase</h3>
           <div class="h-72"><canvas id="chartClasesPie"></canvas></div>
         </div>
-        <div class="lg:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <h3 class="text-sm font-bold mb-1">Perfil de Branquias según Clase a Empacar (%)</h3>
-          <p class="text-[10px] text-slate-500 mb-2">Comparativa del promedio de BOML (Muy Leve), BOL (Leve) y BOF (Fuerte) en cada clase comercial.</p>
+        <div class="bg-slate-50 p-4 rounded-xl border">
+          <h3 class="text-sm font-bold mb-1">Perfil de Branquias</h3>
           <div class="h-72"><canvas id="chartBranquiasPorClase"></canvas></div>
         </div>
       </div>
-      <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-        <h3 class="text-sm font-bold mb-1">Evolución Temporal: % Fresco y Sano vs Severidad de Branquias</h3>
-        <p class="text-[10px] text-slate-500 mb-2">Tendencia por fecha de recepción del % Sano frente al % promedio de BOL y BOF.</p>
-        <div class="h-72"><canvas id="chartTendencia"></canvas></div>
-      </div>
     </div>
 
-    <!-- TAB 2: AUDITORÍA DE BRANQUIAS -->
-    <div id="tab2" class="bg-white p-5 rounded-b-xl shadow-sm border border-red-200 space-y-6 hidden">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div class="lg:col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <h3 class="text-sm font-bold mb-1">Top 25 Lotes con Mayor Afectación en Branquias (BOML + BOL + BOF)</h3>
-          <p class="text-[10px] text-slate-500 mb-2">Desglose apilado por lote para identificar focos de branquias oscuras leves y fuertes.</p>
-          <div class="h-80"><canvas id="chartLotesBranquias"></canvas></div>
-        </div>
-        <div class="bg-red-50 p-4 rounded-xl border border-red-200">
-          <h3 class="text-sm font-bold text-red-900 mb-1">Proporción de Incidencia en Branquias</h3>
-          <p class="text-[10px] text-red-700 mb-2">Peso relativo de BOML, BOL y BOF sobre el promedio de hallazgos.</p>
-          <div class="h-72"><canvas id="chartSeveridadDoughnut"></canvas></div>
-        </div>
-      </div>
-
-      <div>
-        <h3 class="text-sm font-bold text-slate-800 mb-2">🚨 Tabla de Auditoría: Lotes Ordenados por Criticidad (BOF y BOL)</h3>
-        <div class="overflow-x-auto border rounded-lg border-slate-200 max-h-96">
-          <table class="w-full text-left border-collapse text-xs">
-            <thead class="bg-slate-800 text-white uppercase sticky top-0">
-              <tr>
-                <th class="p-2.5">Lote</th>
-                <th class="p-2.5">Camaronera</th>
-                <th class="p-2.5">Piscina</th>
-                <th class="p-2.5">Fecha Llegada</th>
-                <th class="p-2.5 text-right">BOML (Muy Leve)</th>
-                <th class="p-2.5 text-right">BOL (Leve)</th>
-                <th class="p-2.5 text-right">BOF (Fuerte)</th>
-                <th class="p-2.5 text-right">E. Fresco y Sano</th>
-                <th class="p-2.5 text-right">Libras</th>
-                <th class="p-2.5 text-center">Clase</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyBranquiasCriticas" class="divide-y divide-slate-200"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 3: SCORECARD CAMARONERAS Y PISCINAS -->
-    <div id="tab3" class="bg-white p-5 rounded-b-xl shadow-sm border border-amber-200 space-y-6 hidden">
-      <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-        <h3 class="text-sm font-bold mb-2">Resumen Ejecutivo por Camaronera</h3>
-        <div class="overflow-x-auto border rounded-lg border-slate-200 bg-white">
-          <table class="w-full text-left border-collapse text-xs">
-            <thead class="bg-slate-100 text-slate-700 uppercase">
-              <tr>
-                <th class="p-2.5">Camaronera</th>
-                <th class="p-2.5 text-right">Lotes</th>
-                <th class="p-2.5 text-right">Libras Totales</th>
-                <th class="p-2.5 text-right">% Fresco y Sano</th>
-                <th class="p-2.5 text-right">Prom. BOML</th>
-                <th class="p-2.5 text-right">Prom. BOL</th>
-                <th class="p-2.5 text-right">Prom. BOF</th>
-                <th class="p-2.5 text-right">% Lbs Clase A</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyCamaronerasResumen" class="divide-y divide-slate-200"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-green-50 p-4 rounded-xl border border-green-200">
-          <h3 class="text-sm font-bold text-green-900 mb-1">🏆 Top 10 Piscinas: Mayor % Fresco y Sano</h3>
-          <p class="text-[10px] text-green-700 mb-3">Piscinas con mejor calidad física y menor afectación severa.</p>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs">
-              <thead class="bg-green-100 text-green-800 uppercase border-b border-green-300">
-                <tr>
-                  <th class="p-2">Camaronera</th>
-                  <th class="p-2">Piscina</th>
-                  <th class="p-2 text-right">Lotes</th>
-                  <th class="p-2 text-right">BOL / BOF</th>
-                  <th class="p-2 text-right">% Sano</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyMejoresPiscinas" class="divide-y divide-green-200 text-green-900"></tbody>
-            </table>
-          </div>
-        </div>
-        <div class="bg-red-50 p-4 rounded-xl border border-red-200">
-          <h3 class="text-sm font-bold text-red-900 mb-1">🚨 Top 10 Piscinas Críticas: Menor % Sano</h3>
-          <p class="text-[10px] text-red-700 mb-3">Piscinas con menor rendimiento físico en recepción.</p>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse text-xs">
-              <thead class="bg-red-100 text-red-800 uppercase border-b border-red-300">
-                <tr>
-                  <th class="p-2">Camaronera</th>
-                  <th class="p-2">Piscina</th>
-                  <th class="p-2 text-right">Lotes</th>
-                  <th class="p-2 text-right">BOL / BOF</th>
-                  <th class="p-2 text-right">% Sano</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyPeoresPiscinas" class="divide-y divide-red-200 text-red-900"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 4: LOGÍSTICA DE PESCA -->
-    <div id="tab4" class="bg-white p-5 rounded-b-xl shadow-sm border border-slate-200 space-y-6 hidden">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <h3 class="text-sm font-bold mb-1">Calidad y Branquias según Tipo de Logística</h3>
-          <p class="text-[10px] text-slate-500 mb-2">Comparación de % Fresco y Sano vs BOML, BOL y BOF por modalidad logística.</p>
-          <div class="h-72"><canvas id="chartLogisticaComparativa"></canvas></div>
-        </div>
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <h3 class="text-sm font-bold mb-1">Distribución de Clases Empacadas por Logística (%)</h3>
-          <p class="text-[10px] text-slate-500 mb-2">Porcentaje de libras clasificadas en A, B y C según logística de pesca.</p>
-          <div class="h-72"><canvas id="chartLogisticaClases"></canvas></div>
-        </div>
-      </div>
-      <div class="overflow-x-auto border rounded-lg border-slate-200">
-        <table class="w-full text-left border-collapse text-xs">
-          <thead class="bg-slate-100 text-slate-700 uppercase">
-            <tr>
-              <th class="p-2.5">Tipo de Logística</th>
-              <th class="p-2.5 text-right">Lotes</th>
-              <th class="p-2.5 text-right">Libras Recibidas</th>
-              <th class="p-2.5 text-right">% Fresco y Sano</th>
-              <th class="p-2.5 text-right">Prom. BOML</th>
-              <th class="p-2.5 text-right">Prom. BOL</th>
-              <th class="p-2.5 text-right">Prom. BOF</th>
-              <th class="p-2.5 text-right">% Lbs Clase A</th>
-            </tr>
-          </thead>
-          <tbody id="tbodyLogistica" class="divide-y divide-slate-200"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- TAB 5: CORRELACIONES Y GRAMAJES -->
-    <div id="tab5" class="bg-white p-5 rounded-b-xl shadow-sm border border-emerald-200 space-y-6 hidden">
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <h3 class="text-sm font-bold text-slate-800 mb-1">Correlación: Branquias (BOL + BOF %) vs % E. Fresco y Sano</h3>
-          <p class="text-[10px] text-slate-500 mb-2">Impacto de las branquias leves y fuertes en la caída de conformidad y clase a empacar.</p>
-          <div class="h-80"><canvas id="chartCorrBranquiasSano"></canvas></div>
-        </div>
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <h3 class="text-sm font-bold text-slate-800 mb-1">Relación Biométrica: Meta Gramaje Entero vs Cola (g)</h3>
-          <p class="text-[10px] text-slate-500 mb-2">Consistencia de gramajes meta según clasificación del lote.</p>
-          <div class="h-80"><canvas id="chartCorrGramajes"></canvas></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TAB 6: EXPLORADOR DE DATOS CRUDOS -->
-    <div id="tab6" class="bg-white p-5 rounded-b-xl shadow-sm border border-slate-200 hidden space-y-4">
-      <div class="flex flex-wrap items-center justify-between gap-4">
-        <div class="flex items-center gap-2">
-          <button onclick="exportCSV()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-lg font-bold shadow transition">
-            ⬇️ Exportar Vista Filtrada (CSV)
-          </button>
-          <span id="tableCountInfo" class="text-xs text-slate-500 font-medium ml-2"></span>
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="changePage(-1)" class="px-3 py-1 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">◀ Anterior</button>
-          <span id="pageIndicator" class="text-xs font-semibold px-2">Página 1</span>
-          <button onclick="changePage(1)" class="px-3 py-1 bg-slate-200 hover:bg-slate-300 rounded text-xs font-bold">Siguiente ▶</button>
-        </div>
-      </div>
-
-      <div class="overflow-x-auto border rounded-lg border-slate-200">
-        <table class="w-full text-left border-collapse text-xs">
-          <thead class="bg-slate-800 text-white uppercase">
+    <!-- TAB 2: TABLA -->
+    <div id="tab2" class="bg-white p-5 rounded-b-xl shadow-sm border border-slate-200 hidden">
+      <button onclick="exportCSV()" class="mb-4 bg-blue-600 text-white text-xs px-4 py-2 rounded-lg font-bold">⬇️ Exportar (CSV)</button>
+      <div class="overflow-x-auto border rounded-lg max-h-96">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-800 text-white sticky top-0">
             <tr>
               <th class="p-2">Lote</th>
-              <th class="p-2 text-right">BOML (%)</th>
-              <th class="p-2 text-right">BOL (%)</th>
-              <th class="p-2 text-right">BOF (%)</th>
               <th class="p-2">Camaronera</th>
-              <th class="p-2">Piscina</th>
-              <th class="p-2">Logística</th>
-              <th class="p-2">Fecha Llegada</th>
-              <th class="p-2 text-right">Gram. Entero</th>
-              <th class="p-2 text-right">Gram. Cola</th>
-              <th class="p-2 text-right">E. Fresco y Sano</th>
-              <th class="p-2 text-right">Libras Total</th>
+              <th class="p-2 text-right">BOML</th>
+              <th class="p-2 text-right">BOL</th>
+              <th class="p-2 text-right">BOF</th>
+              <th class="p-2 text-right">Sano %</th>
               <th class="p-2 text-center">Clase</th>
             </tr>
           </thead>
-          <tbody id="tbodyRawData" class="divide-y divide-slate-200"></tbody>
+          <tbody id="tbodyRawData" class="divide-y"></tbody>
         </table>
       </div>
     </div>
-
   </main>
 
   <script>
-    // Datos pre-integrados de Reporte_Branquias_Consolidado.csv como respaldo inmediato
+    // SISTEMA GLOBAL DE CAPTURA DE ERRORES
+    window.onerror = function(message, source, lineno, colno, error) {
+      document.getElementById('errorPanel').classList.remove('hidden');
+      document.getElementById('errorMsg').textContent = `Falla técnica detectada -> Línea: ${lineno} | Error: ${message}`;
+      document.getElementById('statusCarga').textContent = "❌ Error detectado";
+      document.getElementById('statusCarga').className = "text-red-400 text-xs font-bold bg-slate-800 px-2 py-1 rounded border border-slate-700";
+    };
+
+    // Base integrada para forzar que funcione
     const EMBEDDED_CSV = `Lote;BOML (Muy Leve %);BOL (Leve %);BOF (Fuerte %);Nombre de camaronera;Piscina;Tipo de logística de pesca;Fecha de llegada;Meta_Gramaje entero;Meta_Gramaje cola;E. fresco y sano;Libras recibidas total;Clase a empacar
 1457532;0%;33%;0%;Camaronera Puna;PD310A;Logística tercerizada;2026-09-17 13:48:36;37.45;24.72;23 (35.38 %);12503.5;C-TERCERO
 1455481;0%;27%;0%;Camaronera Puna;PD416A;;2026-09-10 11:15:01;43;28.38;16 (32 %);100662.96;C-TERCERO
 1454618;27%;7%;0%;Camaronera Chongon;415;;2026-09-04 17:26:16;33.3;21.98;66 (82.5 %);43489.79;A-PRIMERA
 1454537;47%;20%;0%;Camaronera Cachugran;73;;2026-09-03 4:20:56;42;27.72;24 (40 %);560.33;C-TERCERO
 1453079;27%;0%;0%;Camaronera Puna;848;;2026-08-28 17:05:45;37.67;24.86;40 (66.67 %);64875.73;A-PRIMERA
-1451979;40%;0%;0%;Camaronera Puna;846;Logística Omarsa;2026-08-22 8:30:20;39.67;26.18;45 (75 %);31589.09;A-PRIMERA
-1451271;0%;20%;0%;Camaronera Puna;833;;2026-08-17 15:00:20;37.64;24.84;29 (52.73 %);91573.11;B-SEGUNDA
-1451039;53%;0%;0%;Camaronera Cachugran;98;;2026-08-17 0:59:46;39.09;25.8;42 (76.36 %);41843.29;A-PRIMERA
-1451021;40%;20%;0%;Camaronera Chongon;415;;2026-08-16 22:25:25;23.1;15.25;75 (75 %);19390.83;A-PRIMERA
-1450134;47%;0%;0%;Camaronera Chongon;357;Logística Omarsa;2026-08-11 19:28:49;27.6;18.22;57 (76 %);45297.04;A-PRIMERA
-1449951;0%;47%;0%;Camaronera Puna;PU4102A;Logística tercerizada;2026-08-10 22:59:38;36;23.76;53 (75.71 %);22362.63;A-PRIMERA
-1449809;60%;0%;0%;Camaronera Puna;886;;2026-08-10 10:44:16;30;19.8;52 (74.29 %);19830.18;A-PRIMERA
-1449151;0%;33%;0%;Camaronera Puna;PU4029A;;2026-08-07 3:14:39;33.6;22.18;25 (35.71 %);40616.45;C-TERCERO
-1465148;20%;33%;0%;Camaronera Puna;PU4096A;Logística Omarsa;2026-10-28 4:35:18;19.62;12.95;51 (51 %);620.55;B-SEGUNDA
-1465389;0%;53%;47%;Camaronera Puna;PU4099A;Logística Omarsa;2026-10-29 5:45:10;29.03;19.16;31 (41.33 %);20101.94;C-TERCERO
-1464697;0%;60%;13%;Camaronera Puna;PU4099A;;2026-10-26 3:44:22;36.1;23.83;39 (66.1 %);15916.58;B-SEGUNDA
-1464420;0%;33%;0%;Camaronera Puna;PU4101A;Logística tercerizada;2026-10-24 16:59:56;33.9;22.37;34 (56.67 %);55213.79;B-SEGUNDA
-1464212;0%;27%;0%;Camaronera Puna;PU4101A;Logística Omarsa;2026-10-23 19:20:49;33.33;22;34 (56.67 %);82055.28;B-SEGUNDA
-1464193;0%;20%;0%;Camaronera Puna;PU4021A;Logística Omarsa;2026-10-23 17:04:15;33.9;22.37;31 (52.54 %);51133.59;B-SEGUNDA
-1464180;20%;27%;0%;Camaronera Puna;PU1044A;Logística Omarsa;2026-10-23 15:25:38;31.58;20.84;47 (74.6 %);29400.78;A-PRIMERA
-1463532;13%;20%;0%;Camaronera Puna;PU4033A;Logística Omarsa;2026-10-20 19:16:33;34.48;22.76;41 (70.69 %);29496.5;A-PRIMERA
-1463531;0%;27%;0%;Camaronera Puna;PU4092A;Logística tercerizada;2026-10-20 19:12:41;31.03;20.48;30 (51.72 %);40227.05;B-SEGUNDA
-1463310;20%;13%;0%;Camaronera Puna;PU4013A;Logística Omarsa;2026-10-19 20:51:10;33.33;22;29 (48.33 %);62135.43;C-TERCERO
-1463087;0%;40%;0%;Camaronera Puna;PU1038A;Logística Omarsa;2026-10-18 19:33:16;31.58;20.84;28 (44.44 %);56056.08;C-TERCERO
-1462666;0%;27%;0%;Camaronera Puna;PU4011A;Logística Omarsa;2026-10-16 18:10:02;33.9;22.37;28 (47.46 %);68416.32;C-TERCERO
-1462647;0%;33%;0%;Camaronera Puna;PU1041A;Logística Omarsa;2026-10-16 14:52:09;32.79;21.64;45 (73.77 %);14861.55;A-PRIMERA
-1462052;0%;20%;0%;Camaronera Puna;PU1035A;Logística Omarsa;2026-10-14 4:20:32;33.33;22;36 (60 %);52180.52;B-SEGUNDA
 1461836;25%;32%;28%;Camaronera Puna;PU4034A;;2026-10-13 5:14:22;28.57;18.86;32 (45.71 %);609.02;B-SEGUNDA
-1461676;0%;23%;70%;Camaronera Puna;PU4030A;Logística Omarsa;2026-10-12 7:55:27;30.77;20.31;31 (47.69 %);27804.67;B-SEGUNDA
-1461646;0%;47%;0%;Camaronera Puna;PU2081A;Logística Omarsa;2026-10-12 1:52:47;33.33;22;47 (78.33 %);21810.59;A-PRIMERA
-1461643;0%;27%;0%;Camaronera Puna;PU2072A;Logística Omarsa;2026-10-12 1:11:19;30.3;20;34 (51.52 %);109408.82;B-SEGUNDA
-1461467;0%;27%;0%;Camaronera Puna;PU1033A;Logística Omarsa;2026-10-11 0:46:40;32.79;21.64;32 (52.46 %);81414.23;B-SEGUNDA
-1461442;0%;20%;0%;Camaronera Puna;PU2077A;Logística Omarsa;2026-10-10 21:08:52;30.77;20.31;31 (47.69 %);75274.22;C-TERCERO
-1461419;0%;100%;0%;YASIMCORP S.A.;6;;2026-10-10 18:17:19;16.17;10.67;66 (55 %);15916.29;B-SEGUNDA
-1461335;0%;47%;0%;Camaronera Puna;PU2085A;Logística Omarsa;2026-10-10 7:01:44;37.04;24.45;26 (48.15 %);15936.98;C-TERCERO
-1461078;0%;33%;67%;Camaronera Puna;PU4031A;Logística Omarsa;2026-10-09 3:40:26;28.57;18.86;27 (38.57 %);54338.12;C-TERCERO
-1461040;0%;33%;0%;Camaronera Puna;PU4012A;Logística Omarsa;2026-10-09 0:04:01;34.48;22.76;26 (44.83 %);81239.04;C-TERCERO
-1460829;0%;33%;0%;Camaronera Puna;PU1040A;Logística Omarsa;2026-10-08 0:51:47;31.25;20.63;41 (64.06 %);59987.31;B-SEGUNDA
-1459217;20%;0%;0%;Camaronera Puna;PU4015A;Logística Omarsa;2026-09-29 19:21:42;43.48;28.7;37 (80.43 %);9558.47;A-PRIMERA
-1459011;20%;0%;0%;Camaronera Puna;PU4015A;;2026-09-28 22:32:12;41.67;27.5;37 (77.
+1461676;0%;23%;70%;Camaronera Puna;PU4030A;Logística Omarsa;2026-10-12 7:55:27;30.77;20.31;31 (47.69 %);27804.67;B-SEGUNDA`;
+
+    let rawRows = [];
+    let filteredLots = [];
+    let charts = {};
+    let debounceTimer = null;
+
+    // Cuando la página cargue, leer la base integrada y buscar el archivo
+    window.onload = async function() {
+      try {
+        if (typeof Papa === 'undefined') {
+          throw new Error("La librería PapaParse no se cargó. Revisa tu conexión a internet o firewall.");
+        }
+        
+        // Carga forzada de la base integrada primero
+        parseCSVText(EMBEDDED_CSV, "Carga de Respaldo Exitosa");
+
+        // Intento de cargar el archivo externo
+        const response = await fetch('Reporte_Branquias_Consolidado.csv', { cache: 'no-store' });
+        if (response.ok) {
+          const text = await response.text();
+          if (text.trim().length > 0) {
+            parseCSVText(text, "Sincronizado con CSV de GitHub");
+          }
+        }
+      } catch (err) {
+        console.warn("Fetch falló (normal en local):", err);
+      }
+    };
+
+    function handleManualUpload(e) {
+      try {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        document.getElementById('statusCarga').textContent = `⏳ Analizando ${file.name}...`;
+        
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          parseCSVText(evt.target.result, `Archivo Manual: ${file.name}`);
+          e.target.value = ''; 
+        };
+        reader.onerror = function() { throw new Error("Fallo al leer el archivo desde el disco duro."); };
+        reader.readAsText(file, 'UTF-8');
+      } catch (err) {
+        window.onerror(err.message, null, "Upload", null, err);
+      }
+    }
+
+    function parseCSVText(text, sourceLabel) {
+      try {
+        if (!text) throw new Error("El texto del archivo está vacío.");
+        
+        // Limpieza profunda de caracteres BOM e invisibles
+        const cleanText = text.replace(/^\uFEFF/, '').trim();
+        const delimiter = cleanText.split('\n')[0].includes(';') ? ';' : ',';
+
+        Papa.parse(cleanText, {
+          header: true,
+          delimiter: delimiter,
+          skipEmptyLines: true,
+          transformHeader: function(h) { return h.replace(/^\uFEFF/, '').trim(); },
+          complete: function(res) {
+            initData(res.data, sourceLabel);
+          },
+          error: function(err) {
+            throw new Error(`Error en PapaParse: ${err.message}`);
+          }
+        });
+      } catch (err) {
+        window.onerror(err.message, null, "parseCSVText", null, err);
+      }
+    }
+
+    // Funciones auxiliares ultra-seguras
+    function toNumber(val) {
+      if (!val) return 0;
+      if (typeof val === 'number') return val;
+      const clean = String(val).replace('%', '').trim().replace(/\s+/g, '').replace(',', '.');
+      const parsed = parseFloat(clean);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+
+    function parseFrescoSano(str) {
+      if (!str) return 0;
+      const match = String(str).match(/\(\s*(\d+(?:[.,]\d+)?)\s*\%?\s*\)/);
+      if (match) return parseFloat(match[1].replace(',', '.'));
+      return toNumber(str); // Si viene solo un número
+    }
+
+    function getSafeCol(row, possibleNames) {
+      const keys = Object.keys(row);
+      for (let n of possibleNames) {
+        const cleanN = n.toLowerCase();
+        const found = keys.find(k => k.trim().toLowerCase() === cleanN);
+        if (found) return row[found];
+      }
+      return '';
+    }
+
+    function initData(rows, sourceLabel) {
+      try {
+        document.getElementById('errorPanel').classList.add('hidden'); // Ocultar errores si funcionó
+
+        const mapped = rows.map(r => {
+          const lote = String(getSafeCol(r, ['Lote'])).trim();
+          if (!lote) return null;
+
+          return {
+            Lote: lote,
+            Camaronera: String(getSafeCol(r, ['Nombre de camaronera', 'Camaronera']) || 'S/E').trim(),
+            Logistica: String(getSafeCol(r, ['Tipo de logística de pesca', 'Logística']) || 'S/E').trim(),
+            Clase: String(getSafeCol(r, ['Clase a empacar', 'Clase']) || 'SIN CLASE').trim().toUpperCase(),
+            BOML: toNumber(getSafeCol(r, ['BOML (Muy Leve %)', 'BOML'])),
+            BOL: toNumber(getSafeCol(r, ['BOL (Leve %)', 'BOL'])),
+            BOF: toNumber(getSafeCol(r, ['BOF (Fuerte %)', 'BOF'])),
+            SanoPct: parseFrescoSano(getSafeCol(r, ['E. fresco y sano', 'Fresco y sano'])),
+            Libras: toNumber(getSafeCol(r, ['Libras recibidas total', 'Libras recibidas']))
+          };
+        }).filter(r => r !== null);
+
+        if (mapped.length === 0) {
+          throw new Error("No se encontraron lotes. Revisa que el archivo tenga una columna llamada 'Lote'. Las columnas que detecté fueron: " + Object.keys(rows[0] || {}).join(", "));
+        }
+
+        rawRows = mapped;
+        
+        const st = document.getElementById('statusCarga');
+        st.textContent = `✅ ${sourceLabel} (${rawRows.length} lotes)`;
+        st.className = "text-emerald-400 text-xs font-bold bg-slate-800 px-2 py-1 rounded border border-slate-700";
+        
+        document.getElementById('mainContent').style.display = "block";
+
+        populateSelects();
+        applyFilters();
+
+      } catch (err) {
+        window.onerror(err.message, null, "initData", null, err);
+      }
+    }
+
+    function populateSelects() {
+      const uCam = [...new Set(rawRows.map(r => r.Camaronera))].sort();
+      const uLog = [...new Set(rawRows.map(r => r.Logistica))].sort();
+      const uCla = [...new Set(rawRows.map(r => r.Clase))].sort();
+
+      const fill = (id, arr) => {
+        const el = document.getElementById(id);
+        const val = el.value;
+        el.innerHTML = '<option value="ALL">Todas</option>' + arr.map(x => `<option value="${x}">${x}</option>`).join('');
+        if (arr.includes(val)) el.value = val;
+      };
+      
+      fill('fCamaronera', uCam);
+      fill('fLogistica', uLog);
+      fill('fClase', uCla);
+    }
+
+    function debounceFilter() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(applyFilters, 250);
+    }
+
+    function applyFilters() {
+      try {
+        const fCam = document.getElementById('fCamaronera').value;
+        const fLog = document.getElementById('fLogistica').value;
+        const fCla = document.getElementById('fClase').value;
+        const fSev = document.getElementById('fSeveridad').value;
+        const q = document.getElementById('fBusqueda').value.toLowerCase();
+        const dedup = document.getElementById('chkDeduplicar').checked;
+
+        // Deduplicación sencilla
+        let base = rawRows;
+        if (dedup) {
+          const map = new Map();
+          base.forEach(r => map.set(r.Lote, r));
+          base = Array.from(map.values());
+        }
+
+        filteredLots = base.filter(r => {
+          if (fCam !== 'ALL' && r.Camaronera !== fCam) return false;
+          if (fLog !== 'ALL' && r.Logistica !== fLog) return false;
+          if (fCla !== 'ALL' && r.Clase !== fCla) return false;
+          if (fSev === 'BOF' && r.BOF === 0) return false;
+          if (fSev === 'BOL' && r.BOL === 0) return false;
+          if (fSev === 'LIMPIO' && (r.BOML > 0 || r.BOL > 0 || r.BOF > 0)) return false;
+          if (q && !r.Lote.toLowerCase().includes(q)) return false;
+          return true;
+        });
+
+        renderDashboard();
+      } catch (err) {
+        window.onerror(err.message, null, "applyFilters", null, err);
